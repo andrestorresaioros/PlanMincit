@@ -1,42 +1,72 @@
-from datetime import datetime
-from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
-from .base import Base
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
 
-class User(Base):
-    __tablename__ = "users"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    name: Mapped[str] = mapped_column(String(255))
-    password_hash: Mapped[str] = mapped_column(String(255))
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+from app.core.config import settings
+from app.core.security import gen_code, gen_jti, issue_access_token
+from app.db.models import OAuthClient, OAuthAuthCode, OAuthAccessToken
 
-class OAuthClient(Base):
-    __tablename__ = "oauth_clients"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # client_id
-    name: Mapped[str] = mapped_column(String(255), default="")
-    secret: Mapped[str] = mapped_column(String(255))           # fase 2: hash
-    redirect: Mapped[str] = mapped_column(Text)                # CSV (o JSON string)
-    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+def parse_redirects(redirect_field: str) -> list[str]:
+    return [r.strip() for r in (redirect_field or "").split(",") if r.strip()]
 
-class OAuthAuthCode(Base):
-    __tablename__ = "oauth_auth_codes"
-    id: Mapped[str] = mapped_column(String(128), primary_key=True)  # code
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
-    client_id: Mapped[int] = mapped_column(Integer, ForeignKey("oauth_clients.id"), index=True)
-    redirect_uri: Mapped[str] = mapped_column(Text)
-    scopes: Mapped[str] = mapped_column(Text, default="")
-    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
-    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    used: Mapped[bool] = mapped_column(Boolean, default=False)
+def get_client(db: Session, client_id: int) -> OAuthClient | None:
+    return db.get(OAuthClient, client_id)
 
-class OAuthAccessToken(Base):
-    __tablename__ = "oauth_access_tokens"
-    id: Mapped[str] = mapped_column(String(255), primary_key=True)  # jti
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
-    client_id: Mapped[int] = mapped_column(Integer, ForeignKey("oauth_clients.id"), index=True)
-    scopes: Mapped[str] = mapped_column(Text, default="")
-    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+def validate_redirect(client: OAuthClient, redirect_uri: str) -> bool:
+    return redirect_uri in set(parse_redirects(client.redirect))
+
+def create_auth_code(db: Session, user_id: int, client_id: int, redirect_uri: str, scopes: str = "") -> str:
+    code = gen_code(24)
+    expires = datetime.utcnow() + timedelta(seconds=settings.OAUTH_CODE_TTL_SECONDS)
+    rec = OAuthAuthCode(
+        id=code,
+        user_id=user_id,
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        scopes=scopes or "",
+        expires_at=expires,
+        revoked=False,
+        used=False,
+    )
+    db.add(rec)
+    db.commit()
+    return code
+
+def exchange_code_for_token(db: Session, client: OAuthClient, code: str, redirect_uri: str) -> dict:
+    rec = db.get(OAuthAuthCode, code)
+    if not rec or rec.revoked or rec.used:
+        raise ValueError("invalid_code")
+    if rec.client_id != client.id:
+        raise ValueError("invalid_code_client")
+    if rec.redirect_uri != redirect_uri:
+        raise ValueError("redirect_mismatch")
+    if rec.expires_at < datetime.utcnow():
+        raise ValueError("code_expired")
+
+    rec.used = True
+    db.add(rec)
+
+    jti = gen_jti()
+    token = issue_access_token(
+        sub=str(rec.user_id),
+        jti=jti,
+        ttl_seconds=settings.OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+        extra={"client_id": str(client.id), "scope": rec.scopes or ""},
+    )
+
+    tok = OAuthAccessToken(
+        id=jti,
+        user_id=rec.user_id,
+        client_id=client.id,
+        scopes=rec.scopes or "",
+        revoked=False,
+        expires_at=datetime.utcnow() + timedelta(seconds=settings.OAUTH_ACCESS_TOKEN_TTL_SECONDS),
+    )
+    db.add(tok)
+    db.commit()
+
+    return {
+        "token_type": "Bearer",
+        "access_token": token,
+        "expires_in": settings.OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+        "scope": rec.scopes or "",
+    }

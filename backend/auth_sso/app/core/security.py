@@ -6,7 +6,9 @@ import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 
-pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
 
 def hash_password(p: str) -> str:
     return pwd.hash(p)

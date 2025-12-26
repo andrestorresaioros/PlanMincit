@@ -24,3 +24,7 @@ app.include_router(api_router)
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "env": settings.ENV}
+
+@app.get("/")
+def root():
+    return {"service": settings.APP_NAME, "login": "/login", "health": "/healthz"}
