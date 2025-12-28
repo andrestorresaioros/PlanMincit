@@ -1,0 +1,1 @@
+"""PlanMinCIT FastAPI Application"""
