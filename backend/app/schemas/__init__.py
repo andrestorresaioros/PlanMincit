@@ -16,6 +16,13 @@ from app.schemas.document import (
     DocumentCreate, DocumentUpdate, DocumentResponse, DocumentListResponse
 )
 
+from .oauth_client import (
+    OAuthClientCreateRequest,
+    OAuthClientCreateResponse,
+    OAuthClientResponse,
+    OAuthClientRevokeResponse,
+)
+
 __all__ = [
     "UserBase", "UserCreate", "UserUpdate", "UserResponse", "UserWithProfile",
     "Token", "TokenRefresh", "LoginRequest", "MeResponse",

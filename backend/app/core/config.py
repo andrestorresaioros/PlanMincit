@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # Database
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/planmincit"
+    DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5433/planmincit"
     DATABASE_ECHO: bool = False
     
     # Security

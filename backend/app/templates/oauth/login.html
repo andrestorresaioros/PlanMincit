@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>SSO Login</title></head>
+  <body>
+    <h3>Iniciar sesión (SSO)</h3>
+    {% if error %}<p style="color:red">{{error}}</p>{% endif %}
+    <form method="post" action="/oauth/login">
+      <input type="hidden" name="next" value="{{next}}"/>
+      <div><input name="email" placeholder="Email" required></div>
+      <div><input name="password" placeholder="Password" type="password" required></div>
+      <button type="submit">Entrar</button>
+    </form>
+  </body>
+</html>

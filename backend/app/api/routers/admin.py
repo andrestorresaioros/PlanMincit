@@ -20,6 +20,14 @@ from app.api.dependencies import require_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
+from uuid import UUID
+from app.schemas.oauth_client import (
+    OAuthClientCreateRequest,
+    OAuthClientCreateResponse,
+    OAuthClientResponse,
+    OAuthClientRevokeResponse,
+)
+from app.services.oauth_client_service import OAuthClientService
 
 @router.post("/authorities", response_model=AuthorityDetailResponse, status_code=status.HTTP_201_CREATED)
 async def create_authority(
@@ -299,3 +307,49 @@ async def delete_document_admin(
     """
     DocumentService.delete_document(db, current_user, document_id)
     return None
+
+@router.post("/oauth/clients", response_model=OAuthClientCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_oauth_client(
+    data: OAuthClientCreateRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Crea un OAuth Client (client_id + client_secret).
+    IMPORTANTE: el client_secret se retorna SOLO UNA VEZ.
+    """
+    client, secret = OAuthClientService.create_client(db, data.name, data.redirect_uris)
+    return OAuthClientCreateResponse(
+        client_id=client.id,
+        client_secret=secret,
+        name=client.name,
+        redirect_uris=client.redirect_uris,
+    )
+
+
+@router.get("/oauth/clients", response_model=List[OAuthClientResponse])
+async def list_oauth_clients(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    clients = OAuthClientService.list_clients(db)
+    return [
+        OAuthClientResponse(
+            client_id=c.id,
+            name=c.name,
+            redirect_uris=c.redirect_uris,
+            revoked=c.revoked,
+        )
+        for c in clients
+    ]
+
+
+@router.post("/oauth/clients/{client_id}/revoke", response_model=OAuthClientRevokeResponse)
+async def revoke_oauth_client(
+    client_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    client = OAuthClientService.revoke_client(db, client_id)
+    return OAuthClientRevokeResponse(client_id=client.id, revoked=client.revoked)
+
