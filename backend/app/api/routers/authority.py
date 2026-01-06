@@ -201,7 +201,6 @@ async def get_ndtt_report(
         for assignment in current_user.instrument_assignments:
             if assignment.territory_name:
                 nombre_municipio = assignment.territory_name.strip()
-                print(f"🔍 NDTT Endpoint - Territorio del usuario: '{nombre_municipio}'")
                 break
     
     # Si no hay territorio en assignments, intentar desde additional_data

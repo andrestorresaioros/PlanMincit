@@ -63,16 +63,11 @@ class NDTTService:
         Returns:
             Dictionary with municipality data including url_pdfinforme
         """
-        # Debug: Mostrar el valor original
-        print(f"\n🔍 NDTT - Nombre original recibido: '{nombre_municipio}'")
-        
         # Normalizar el nombre del municipio
         nombre_normalizado = normalize_text(nombre_municipio)
-        print(f"🔍 NDTT - Nombre normalizado: '{nombre_normalizado}'")
         
         # Buscar el código del municipio en el diccionario
         cod_municipio = MUNICIPIOS_COLOMBIA.get(nombre_normalizado)
-        print(f"🔍 NDTT - Código encontrado: {cod_municipio}")
         
         if not cod_municipio:
             raise HTTPException(
@@ -134,8 +129,6 @@ class NDTTService:
             
             # Obtener el primer municipio del array (debería ser el único con ese código)
             municipio_data = municipios[0]
-            
-            print(f"🔍 NDTT - URL PDF: {municipio_data.get('url_pdfinforme')}")
                 
             return {
                 "cod_municipio": municipio_data.get("cod_municipio") or cod_municipio,
