@@ -4,11 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 import os
+import json
 from app.db.session import get_db
 from app.models.user import User
 from app.models.instrument import InstrumentCode
 from app.schemas.document import DocumentResponse, DocumentUpdate
+from app.schemas.ndtt import NDTTInfoResponse
 from app.services.document_service import DocumentService
+from app.services.ndtt_service import NDTTService
 from app.api.dependencies import require_authority, get_current_user
 
 router = APIRouter(prefix="/authority", tags=["authority"], dependencies=[Depends(require_authority)])
@@ -42,6 +45,8 @@ async def get_documents_by_instrument(
                 file_path=doc.file_path,
                 content_type=doc.content_type,
                 size_bytes=doc.size_bytes,
+                phase=doc.phase,
+                component=doc.component,
                 created_at=doc.created_at,
                 updated_at=doc.updated_at
             )
@@ -55,6 +60,8 @@ async def upload_document(
     instrument_code: InstrumentCode = Form(..., description="Código del instrumento"),
     title: str = Form(..., description="Título del documento"),
     description: Optional[str] = Form(None, description="Descripción del documento"),
+    phase: Optional[str] = Form(None, description="Fase del plan"),
+    component: Optional[str] = Form(None, description="Componente del plan (slug)"),
     file: UploadFile = File(..., description="Archivo a subir"),
     current_user: User = Depends(require_authority),
     db: Session = Depends(get_db)
@@ -64,7 +71,7 @@ async def upload_document(
     Only LEADERS can upload documents.
     """
     document = await DocumentService.create_document(
-        db, current_user, instrument_code, title, description, file
+        db, current_user, instrument_code, title, description, file, phase, component
     )
     
     return DocumentResponse(
@@ -80,6 +87,8 @@ async def upload_document(
         file_path=document.file_path,
         content_type=document.content_type,
         size_bytes=document.size_bytes,
+        phase=document.phase,
+        component=document.component,
         created_at=document.created_at,
         updated_at=document.updated_at
     )
@@ -111,6 +120,8 @@ async def update_document(
         file_path=document.file_path,
         content_type=document.content_type,
         size_bytes=document.size_bytes,
+        phase=document.phase,
+        component=document.component,
         created_at=document.created_at,
         updated_at=document.updated_at
     )
@@ -170,4 +181,55 @@ async def download_document(
         path=document.file_path,
         filename=document.original_filename,
         media_type=document.content_type or "application/octet-stream"
+    )
+
+
+@router.get("/ndtt-report", response_model=NDTTInfoResponse)
+async def get_ndtt_report(
+    current_user: User = Depends(require_authority),
+    db: Session = Depends(get_db)
+):
+    """
+    Get NDTT report information for the current user's municipality.
+    Searches by municipality name from the user's territory assignment.
+    """
+    # Obtener el nombre del territorio del usuario
+    nombre_municipio = None
+    
+    if current_user.instrument_assignments:
+        # Obtener el territorio de la primera asignación
+        for assignment in current_user.instrument_assignments:
+            if assignment.territory_name:
+                nombre_municipio = assignment.territory_name.strip()
+                print(f"🔍 NDTT Endpoint - Territorio del usuario: '{nombre_municipio}'")
+                break
+    
+    # Si no hay territorio en assignments, intentar desde additional_data
+    if not nombre_municipio and current_user.authority_profile and current_user.authority_profile.additional_data:
+        try:
+            additional_data = json.loads(current_user.authority_profile.additional_data)
+            nombre_municipio = additional_data.get("nombre_municipio")
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    
+    if not nombre_municipio:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se pudo determinar el nombre del municipio para este usuario. "
+                   "Por favor, contacte al administrador para actualizar su perfil."
+        )
+    
+    # Buscar datos en la API de NDTT por nombre del municipio
+    ndtt_data = NDTTService.get_municipio_info(nombre_municipio)
+    
+    if not ndtt_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontró información NDTT para el municipio '{nombre_municipio}'"
+        )
+    
+    return NDTTInfoResponse(
+        cod_municipio=ndtt_data.get("cod_municipio"),
+        nombre_municipio=ndtt_data.get("nombre_municipio"),
+        url_pdfinforme=ndtt_data.get("url_pdfinforme")
     )

@@ -21,18 +21,19 @@ class AuthorityService:
     ) -> None:
         """
         Validate instrument assignments against business rules:
-        - Exactly 3 instruments must be assigned
+        - At least 1 instrument must be assigned
         - Only 1 LEADER per instrument globally
         - Maximum 8 STRATEGIC_ALLY per instrument globally
         """
-        if len(assignments) != 3:
+        if len(assignments) < 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Debe asignar exactamente 3 instrumentos"
+                detail="Debe asignar al menos 1 instrumento"
             )
         
         # Check for duplicate instruments in request
-        instrument_codes = [a.instrument_code for a in assignments]
+        # Handle both dict and Pydantic objects
+        instrument_codes = [a.get('instrument_code') if isinstance(a, dict) else a.instrument_code for a in assignments]
         if len(instrument_codes) != len(set(instrument_codes)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -41,17 +42,21 @@ class AuthorityService:
         
         # Validate each assignment
         for assignment in assignments:
+            # Handle both dict and Pydantic objects
+            instrument_code = assignment.get('instrument_code') if isinstance(assignment, dict) else assignment.instrument_code
+            assignment_role = assignment.get('role') if isinstance(assignment, dict) else assignment.role
+            
             instrument = db.query(Instrument).filter(
-                Instrument.code == assignment.instrument_code
+                Instrument.code == instrument_code
             ).first()
             
             if not instrument:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Instrumento {assignment.instrument_code} no encontrado"
+                    detail=f"Instrumento {instrument_code} no encontrado"
                 )
             
-            if assignment.role == AssignmentRole.LEADER_PLANNING:
+            if assignment_role == AssignmentRole.LEADER_PLANNING:
                 # Check if there's already a leader for this instrument
                 existing_leader_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
@@ -66,10 +71,10 @@ class AuthorityService:
                 if existing_leader:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya existe un líder para el instrumento {assignment.instrument_code}"
+                        detail=f"Ya existe un líder para el instrumento {instrument_code}"
                     )
             
-            elif assignment.role == AssignmentRole.STRATEGIC_ALLY:
+            elif assignment_role == AssignmentRole.STRATEGIC_ALLY:
                 # Check if there are already 8 allies for this instrument
                 allies_count_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
@@ -84,7 +89,7 @@ class AuthorityService:
                 if allies_count >= 8:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya hay 8 aliados para el instrumento {assignment.instrument_code} (máximo permitido)"
+                        detail=f"Ya hay 8 aliados para el instrumento {instrument_code} (máximo permitido)"
                     )
     
     @staticmethod
@@ -186,14 +191,20 @@ class AuthorityService:
             
             # Create new assignments
             for assignment in update_data["instrument_assignments"]:
+                # Handle both dict and Pydantic objects
+                instrument_code = assignment.get('instrument_code') if isinstance(assignment, dict) else assignment.instrument_code
+                assignment_role = assignment.get('role') if isinstance(assignment, dict) else assignment.role
+                territory_name = assignment.get('territory_name') if isinstance(assignment, dict) else getattr(assignment, 'territory_name', None)
+                
                 instrument = db.query(Instrument).filter(
-                    Instrument.code == assignment.instrument_code
+                    Instrument.code == instrument_code
                 ).first()
                 
                 assignment_obj = AuthorityInstrumentAssignment(
                     authority_user_id=user_id,
                     instrument_id=instrument.id,
-                    assignment_role=assignment.role
+                    assignment_role=assignment_role,
+                    territory_name=territory_name
                 )
                 db.add(assignment_obj)
         

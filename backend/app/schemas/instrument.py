@@ -34,6 +34,7 @@ class InstrumentAssignmentResponse(BaseModel):
     instrument_name: str
     assignment_role: AssignmentRole
     role_display: str  # "lider de planificacion" o "aliado estrategico"
+    territory_name: str | None = None
     created_at: datetime
     
     class Config:

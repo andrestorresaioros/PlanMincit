@@ -38,6 +38,7 @@ class InstrumentAssignment(BaseModel):
     """Instrument assignment for authority creation"""
     instrument_code: InstrumentCode
     role: AssignmentRole
+    territory_name: Optional[str] = None
 
 
 class AuthorityCreateRequest(BaseModel):
@@ -56,8 +57,8 @@ class AuthorityUpdateRequest(BaseModel):
     display_name: Optional[str] = Field(None, min_length=1, max_length=255)
     additional_data: Optional[str] = None
     is_active: Optional[bool] = None
-    # Opcional: permitir reasignación de instrumentos (requiere validación compleja)
-    instrument_assignments: Optional[List[InstrumentAssignment]] = Field(None, min_items=3, max_items=3)
+    # Opcional: permitir reasignación de instrumentos (permite múltiples asignaciones)
+    instrument_assignments: Optional[List[InstrumentAssignment]] = Field(None, min_items=1)
 
 
 class AuthorityDetailResponse(BaseModel):

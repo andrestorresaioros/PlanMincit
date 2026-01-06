@@ -76,7 +76,8 @@ async def get_current_user_info(
                     instrument_code=assignment.instrument.code,
                     instrument_name=assignment.instrument.name,
                     role=assignment.assignment_role,
-                    role_display=role_display
+                    role_display=role_display,
+                    territory_name=assignment.territory_name
                 )
             )
     

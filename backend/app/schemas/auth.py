@@ -31,6 +31,7 @@ class InstrumentAssignmentInfo(BaseModel):
     instrument_name: str
     role: AssignmentRole
     role_display: str  # "lider de planificacion" o "aliado estrategico"
+    territory_name: Optional[str] = None
     
     class Config:
         from_attributes = True

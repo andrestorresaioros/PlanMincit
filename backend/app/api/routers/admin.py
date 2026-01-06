@@ -61,6 +61,7 @@ async def create_authority(
                 instrument_name=assignment.instrument.name,
                 assignment_role=assignment.assignment_role,
                 role_display=role_display,
+                territory_name=assignment.territory_name,
                 created_at=assignment.created_at
             )
         )
@@ -107,6 +108,7 @@ async def list_authorities(
                     instrument_name=assignment.instrument.name,
                     assignment_role=assignment.assignment_role,
                     role_display=role_display,
+                    territory_name=assignment.territory_name,
                     created_at=assignment.created_at
                 )
             )
@@ -161,6 +163,7 @@ async def get_authority_detail(
                 instrument_name=assignment.instrument.name,
                 assignment_role=assignment.assignment_role,
                 role_display=role_display,
+                territory_name=assignment.territory_name,
                 created_at=assignment.created_at
             )
         )
@@ -209,6 +212,7 @@ async def update_authority(
                 instrument_name=assignment.instrument.name,
                 assignment_role=assignment.assignment_role,
                 role_display=role_display,
+                territory_name=assignment.territory_name,
                 created_at=assignment.created_at
             )
         )

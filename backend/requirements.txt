@@ -1,13 +1,34 @@
+# FastAPI y servidor ASGI
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
+
+# Validación y configuración
 pydantic==2.10.3
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
+email-validator==2.1.0.post1
+
+# Base de datos
 sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
-python-multipart==0.0.18
+
+# Autenticación y seguridad
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+python-multipart==0.0.18
+
+# Templates y sesiones (OAuth/SSO)
+jinja2==3.1.3
+itsdangerous==2.1.2
+
+# Testing
 pytest==8.3.4
 httpx==0.27.2
+pytest-asyncio==0.23.5
+
+# HTTP Client (para integraciones externas)
+requests==2.32.5
+
+# Progress bars (para scripts de sincronización)
+tqdm==4.67.1

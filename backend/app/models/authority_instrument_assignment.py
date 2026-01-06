@@ -1,7 +1,7 @@
 """Authority Instrument Assignment model"""
 import enum
 from datetime import datetime
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, Enum as SQLEnum, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SQLEnum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 
@@ -20,6 +20,7 @@ class AuthorityInstrumentAssignment(Base):
     authority_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     instrument_id = Column(Integer, ForeignKey("instruments.id", ondelete="CASCADE"), nullable=False)
     assignment_role = Column(SQLEnum(AssignmentRole), nullable=False)
+    territory_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships

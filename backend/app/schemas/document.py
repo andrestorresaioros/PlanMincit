@@ -9,6 +9,8 @@ class DocumentBase(BaseModel):
     """Base document schema"""
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
+    phase: Optional[str] = Field(None, max_length=100)
+    component: Optional[str] = Field(None, max_length=100)
 
 
 class DocumentCreate(DocumentBase):
@@ -24,6 +26,8 @@ class DocumentUpdate(BaseModel):
     """Schema for updating document metadata"""
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    phase: Optional[str] = Field(None, max_length=100)
+    component: Optional[str] = Field(None, max_length=100)
 
 
 class DocumentResponse(DocumentBase):

@@ -87,7 +87,9 @@ class DocumentService:
         instrument_code: InstrumentCode,
         title: str,
         description: Optional[str],
-        file: UploadFile
+        file: UploadFile,
+        phase: Optional[str] = None,
+        component: Optional[str] = None
     ) -> Document:
         """Create a new document (only leaders can create)"""
         # Check if user is leader of this instrument
@@ -117,7 +119,9 @@ class DocumentService:
             file_path=file_path,
             original_filename=file.filename,
             content_type=file.content_type,
-            size_bytes=size_bytes
+            size_bytes=size_bytes,
+            phase=phase,
+            component=component
         )
         
         db.add(document)
@@ -190,6 +194,10 @@ class DocumentService:
             document.title = update_data.title
         if update_data.description is not None:
             document.description = update_data.description
+        if update_data.phase is not None:
+            document.phase = update_data.phase
+        if update_data.component is not None:
+            document.component = update_data.component
         
         db.commit()
         db.refresh(document)

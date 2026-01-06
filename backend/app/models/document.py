@@ -19,6 +19,8 @@ class Document(Base):
     original_filename = Column(String(255), nullable=False)
     content_type = Column(String(100), nullable=True)
     size_bytes = Column(BigInteger, nullable=False)
+    phase = Column(String(100), nullable=True)  # Fase del plan (Alistamiento, Diagnóstico, etc.)
+    component = Column(String(100), nullable=True)  # Componente del plan (slug)
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

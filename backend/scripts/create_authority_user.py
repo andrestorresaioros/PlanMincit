@@ -1,5 +1,6 @@
 """Script to create a sample authority user for testing"""
 import sys
+import json
 from pathlib import Path
 
 # Add parent directory to path
@@ -21,16 +22,15 @@ def create_authority_user():
     db = SessionLocal()
     
     try:
-        # Check if authority user already exists
+        # Delete existing user if exists and recreate
         existing_user = db.query(User).filter(
             User.email == "autoridad.prueba@bogota.gov.co"
         ).first()
         
         if existing_user:
-            print("✅ Authority user already exists!")
-            print(f"   Email: {existing_user.email}")
-            print(f"   Role: {existing_user.role}")
-            return
+            print("⚠️  Deleting existing authority user to recreate with new data...")
+            db.delete(existing_user)
+            db.commit()
         
         # Get instruments
         rural_instrument = db.query(Instrument).filter(
@@ -57,9 +57,9 @@ def create_authority_user():
         # Create authority profile
         profile = AuthorityProfile(
             user_id=user.id,
-            display_name="Alcaldía Mayor de Bogotá D.C.",
+            display_name="Alcaldía de Aguadas - Caldas",
             authority_type=AuthorityType.MUNICIPIO,
-            additional_data=None
+            additional_data=json.dumps({"cod_municipio": "17013"})
         )
         db.add(profile)
         db.flush()
@@ -68,7 +68,8 @@ def create_authority_user():
         assignment1 = AuthorityInstrumentAssignment(
             authority_user_id=user.id,
             instrument_id=rural_instrument.id,
-            assignment_role=AssignmentRole.LEADER_PLANNING
+            assignment_role=AssignmentRole.LEADER_PLANNING,
+            territory_name="Aguadas"
         )
         db.add(assignment1)
         
@@ -76,7 +77,8 @@ def create_authority_user():
         assignment2 = AuthorityInstrumentAssignment(
             authority_user_id=user.id,
             instrument_id=urbano_instrument.id,
-            assignment_role=AssignmentRole.STRATEGIC_ALLY
+            assignment_role=AssignmentRole.STRATEGIC_ALLY,
+            territory_name="Aguadas"
         )
         db.add(assignment2)
         
