@@ -395,3 +395,164 @@ curl -X GET http://localhost:8000/admin/documents \
 curl -X GET "http://localhost:8000/authority/documents?instrument=RURAL" \
   -H "Authorization: Bearer $LEADER_TOKEN" | jq
 ```
+
+---
+
+## 7️⃣ Consultar Documentos por Autoridad (Nuevo Endpoint)
+
+Este nuevo endpoint permite obtener documentos de una autoridad específica filtrados por instrumento, fase y componente, 
+devolviendo la información en una estructura jerárquica.
+
+### Obtener documentos de un municipio específico
+
+```bash
+curl -X GET "http://localhost:8000/authority/documents-by-authority?instrument_code=RURAL&phase=diagnostico&component=oferta&codigo_municipio=17013"
+```
+
+**Respuesta:**
+```json
+{
+  "cod_municipio": "17013",
+  "cod_departamento": null,
+  "cod_region": null,
+  "cedula": null,
+  "nombre_autoridad": "Municipio de Aguadas",
+  "respuesta": [
+    {
+      "eje": "GOBERNANZA Y PLANIFICACIÓN TURÍSTICA",
+      "criterios": [
+        {
+          "nombre_criterio": "El turismo en el Plan de Ordenamiento Territorial",
+          "criterios_documentos": [
+            {
+              "nombre": "documento_pot.pdf",
+              "urlfiledoc": "/authority/documents/123/download"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Obtener documentos de un departamento
+
+```bash
+curl -X GET "http://localhost:8000/authority/documents-by-authority?instrument_code=URBANO&phase=formulacion&component=plan&codigo_departamento=17"
+```
+
+### Obtener documentos de una región
+
+```bash
+curl -X GET "http://localhost:8000/authority/documents-by-authority?instrument_code=REGION&phase=alistamiento&component=diagnostico&codigo_region=REG01"
+```
+
+### Obtener documentos de una autoridad independiente
+
+```bash
+curl -X GET "http://localhost:8000/authority/documents-by-authority?instrument_code=RURAL&phase=diagnostico&component=oferta&cedula=1234567890"
+```
+
+### Crear autoridad con código territorial
+
+Para que el endpoint funcione, las autoridades deben tener sus códigos territoriales configurados:
+
+**Crear autoridad MUNICIPIO:**
+```bash
+curl -X POST http://localhost:8000/admin/authorities \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_ACCESS_TOKEN" \
+  -d '{
+    "email": "municipio@mincit.gov.co",
+    "password": "SecurePass123!",
+    "authority_type": "MUNICIPIO",
+    "display_name": "Municipio de Aguadas",
+    "codigo_municipio": "17013",
+    "instrument_assignments": [
+      {
+        "instrument_code": "RURAL",
+        "role": "LEADER_PLANNING",
+        "territory_name": "Aguadas"
+      }
+    ]
+  }'
+```
+
+**Crear autoridad DEPARTAMENTO:**
+```bash
+curl -X POST http://localhost:8000/admin/authorities \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_ACCESS_TOKEN" \
+  -d '{
+    "email": "departamento@mincit.gov.co",
+    "password": "SecurePass123!",
+    "authority_type": "DEPARTAMENTO",
+    "display_name": "Departamento de Caldas",
+    "codigo_departamento": "17",
+    "instrument_assignments": [
+      {
+        "instrument_code": "URBANO",
+        "role": "LEADER_PLANNING",
+        "territory_name": "Caldas"
+      }
+    ]
+  }'
+```
+
+**Crear autoridad REGION:**
+```bash
+curl -X POST http://localhost:8000/admin/authorities \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_ACCESS_TOKEN" \
+  -d '{
+    "email": "region@mincit.gov.co",
+    "password": "SecurePass123!",
+    "authority_type": "REGION",
+    "display_name": "Región Caribe",
+    "codigo_region": "REG01",
+    "instrument_assignments": [
+      {
+        "instrument_code": "REGION",
+        "role": "LEADER_PLANNING",
+        "territory_name": "Región Caribe"
+      }
+    ]
+  }'
+```
+
+**Crear autoridad INDEPENDIENTE:**
+```bash
+curl -X POST http://localhost:8000/admin/authorities \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_ACCESS_TOKEN" \
+  -d '{
+    "email": "independiente@mincit.gov.co",
+    "password": "SecurePass123!",
+    "authority_type": "INDEPENDIENTE",
+    "display_name": "Consultor Independiente Juan Pérez",
+    "cedula": "1234567890",
+    "instrument_assignments": [
+      {
+        "instrument_code": "RURAL",
+        "role": "STRATEGIC_ALLY"
+      }
+    ]
+  }'
+```
+
+**Parámetros del endpoint:**
+- `instrument_code`: Código del instrumento (RURAL, URBANO, REGION) - **Requerido**
+- `phase`: Fase del plan - **Requerido**
+- `component`: Componente del plan - **Requerido**
+- Uno de los siguientes (según tipo de autoridad):
+  - `codigo_municipio`: Código del municipio (ej: "17013")
+  - `codigo_departamento`: Código del departamento (ej: "17")
+  - `codigo_region`: Código de la región (ej: "REG01")
+  - `cedula`: Cédula de la autoridad independiente (ej: "1234567890")
+
+**Notas importantes:**
+- Debe proporcionar al menos uno de los códigos territoriales o cédula
+- La respuesta incluye una estructura jerárquica con ejes, criterios y documentos
+- Los documentos están filtrados por instrumento, fase y componente específicos
+```

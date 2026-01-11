@@ -23,6 +23,12 @@ class AuthorityProfile(Base):
     display_name = Column(String(255), nullable=False)  # Nombre de la entidad
     additional_data = Column(Text, nullable=True)  # JSON opcional para info adicional
     
+    # Códigos de identificación según tipo de autoridad
+    codigo_municipio = Column(String(10), nullable=True, index=True)  # Para MUNICIPIO
+    codigo_departamento = Column(String(10), nullable=True, index=True)  # Para DEPARTAMENTO
+    codigo_region = Column(String(10), nullable=True, index=True)  # Para REGION
+    cedula = Column(String(20), nullable=True, index=True)  # Para INDEPENDIENTE
+    
     # Relationships
     user = relationship("User", back_populates="authority_profile")
     

@@ -135,8 +135,8 @@ class DocumentService:
         user: User,
         instrument_code: InstrumentCode
     ) -> List[Document]:
-        """Get all documents for an instrument (if user has access)"""
-        # Admin can see all
+        """Get all documents for an instrument (filtered by user ownership)"""
+        # Admin can see all documents for the instrument
         if user.role == UserRole.ADMIN:
             instrument = db.query(Instrument).filter(Instrument.code == instrument_code).first()
             if not instrument:
@@ -154,7 +154,11 @@ class DocumentService:
                 detail="No tiene acceso a este instrumento"
             )
         
-        return db.query(Document).filter(Document.instrument_id == assignment.instrument_id).all()
+        # Authority users only see their own documents
+        return db.query(Document).filter(
+            Document.instrument_id == assignment.instrument_id,
+            Document.owner_authority_user_id == user.id
+        ).all()
     
     @staticmethod
     def get_all_documents(db: Session) -> List[Document]:
@@ -181,13 +185,13 @@ class DocumentService:
                 detail="Documento no encontrado"
             )
         
-        # Check permissions
-        instrument_code = document.instrument.code
-        if user.role != UserRole.ADMIN and not DocumentService.check_user_is_instrument_leader(db, user.id, instrument_code):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el líder o admin puede editar documentos"
-            )
+        # Check permissions: Admin can edit any document, authority can only edit their own
+        if user.role != UserRole.ADMIN:
+            if document.owner_authority_user_id != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo puedes editar tus propios documentos"
+                )
         
         # Update fields
         if update_data.title is not None:
@@ -213,13 +217,13 @@ class DocumentService:
                 detail="Documento no encontrado"
             )
         
-        # Check permissions
-        instrument_code = document.instrument.code
-        if user.role != UserRole.ADMIN and not DocumentService.check_user_is_instrument_leader(db, user.id, instrument_code):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el líder o admin puede eliminar documentos"
-            )
+        # Check permissions: Admin can delete any document, authority can only delete their own
+        if user.role != UserRole.ADMIN:
+            if document.owner_authority_user_id != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo puedes eliminar tus propios documentos"
+                )
         
         # Delete file from disk
         if os.path.exists(document.file_path):
@@ -228,6 +232,111 @@ class DocumentService:
         # Delete from database
         db.delete(document)
         db.commit()
+    
+    @staticmethod
+    def get_documents_by_authority_hierarchical(
+        db: Session,
+        instrument_code: InstrumentCode,
+        phase: str,
+        component: str,
+        codigo_municipio: Optional[str] = None,
+        codigo_departamento: Optional[str] = None,
+        codigo_region: Optional[str] = None,
+        cedula: Optional[str] = None
+    ):
+        """Get documents for a specific authority in hierarchical structure"""
+        from app.models.authority_profile import AuthorityProfile
+        from app.schemas.document import (
+            AuthorityDocumentsResponse, 
+            EjeDocumentResponse, 
+            CriterioDocumentResponse, 
+            DocumentItemResponse
+        )
+        
+        # Buscar autoridad según el parámetro proporcionado
+        authority_profile = None
+        if codigo_municipio:
+            authority_profile = db.query(AuthorityProfile).filter(
+                AuthorityProfile.codigo_municipio == codigo_municipio
+            ).first()
+        elif codigo_departamento:
+            authority_profile = db.query(AuthorityProfile).filter(
+                AuthorityProfile.codigo_departamento == codigo_departamento
+            ).first()
+        elif codigo_region:
+            authority_profile = db.query(AuthorityProfile).filter(
+                AuthorityProfile.codigo_region == codigo_region
+            ).first()
+        elif cedula:
+            authority_profile = db.query(AuthorityProfile).filter(
+                AuthorityProfile.cedula == cedula
+            ).first()
+        
+        if not authority_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Autoridad no encontrada"
+            )
+        
+        # Obtener instrumento
+        instrument = db.query(Instrument).filter(Instrument.code == instrument_code).first()
+        if not instrument:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Instrumento no encontrado"
+            )
+        
+        # Obtener documentos filtrados
+        documents = db.query(Document).filter(
+            Document.instrument_id == instrument.id,
+            Document.owner_authority_user_id == authority_profile.user_id,
+            Document.phase == phase,
+            Document.component == component
+        ).all()
+        
+        # Construir estructura jerárquica
+        # Por ahora, creamos una estructura simple. En el futuro se puede mejorar
+        # agrupando documentos por eje y criterio real si esa información está disponible
+        
+        if not documents:
+            # Retornar estructura vacía
+            return AuthorityDocumentsResponse(
+                cod_municipio=authority_profile.codigo_municipio,
+                cod_departamento=authority_profile.codigo_departamento,
+                cod_region=authority_profile.codigo_region,
+                cedula=authority_profile.cedula,
+                nombre_autoridad=authority_profile.display_name,
+                respuesta=[]
+            )
+        
+        # Agrupar documentos en estructura jerárquica
+        # Por ahora, todos los documentos se agrupan en un solo eje y criterio
+        document_items = [
+            DocumentItemResponse(
+                nombre=doc.title,
+                urlfiledoc=f"/api/authority/documents/{doc.id}/download"
+            )
+            for doc in documents
+        ]
+        
+        criterio = CriterioDocumentResponse(
+            nombre_criterio=f"Documentos de {phase} - {component}",
+            criterios_documentos=document_items
+        )
+        
+        eje = EjeDocumentResponse(
+            eje=f"Documentos {instrument_code.value}",
+            criterios=[criterio]
+        )
+        
+        return AuthorityDocumentsResponse(
+            cod_municipio=authority_profile.codigo_municipio,
+            cod_departamento=authority_profile.codigo_departamento,
+            cod_region=authority_profile.codigo_region,
+            cedula=authority_profile.cedula,
+            nombre_autoridad=authority_profile.display_name,
+            respuesta=[eje]
+        )
 
 
 # Import datetime for file naming

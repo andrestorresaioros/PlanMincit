@@ -11,6 +11,10 @@ class AuthorityProfileBase(BaseModel):
     authority_type: AuthorityType
     display_name: str = Field(..., min_length=1, max_length=255)
     additional_data: Optional[str] = None
+    codigo_municipio: Optional[str] = Field(None, max_length=10)
+    codigo_departamento: Optional[str] = Field(None, max_length=10)
+    codigo_region: Optional[str] = Field(None, max_length=10)
+    cedula: Optional[str] = Field(None, max_length=20)
 
 
 class AuthorityProfileCreate(AuthorityProfileBase):
@@ -23,6 +27,10 @@ class AuthorityProfileUpdate(BaseModel):
     authority_type: Optional[AuthorityType] = None
     display_name: Optional[str] = Field(None, min_length=1, max_length=255)
     additional_data: Optional[str] = None
+    codigo_municipio: Optional[str] = Field(None, max_length=10)
+    codigo_departamento: Optional[str] = Field(None, max_length=10)
+    codigo_region: Optional[str] = Field(None, max_length=10)
+    cedula: Optional[str] = Field(None, max_length=20)
 
 
 class AuthorityProfileResponse(AuthorityProfileBase):
@@ -44,11 +52,15 @@ class InstrumentAssignment(BaseModel):
 class AuthorityCreateRequest(BaseModel):
     """Schema for creating a new authority user (admin only)"""
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=8, description="La contraseña debe tener al menos 8 caracteres")
     authority_type: AuthorityType
     display_name: str = Field(..., min_length=1, max_length=255)
     additional_data: Optional[str] = None
-    instrument_assignments: List[InstrumentAssignment] = Field(..., min_items=3, max_items=3)
+    codigo_municipio: Optional[str] = Field(None, max_length=10)
+    codigo_departamento: Optional[str] = Field(None, max_length=10)
+    codigo_region: Optional[str] = Field(None, max_length=10)
+    cedula: Optional[str] = Field(None, max_length=20)
+    instrument_assignments: List[InstrumentAssignment] = Field(..., min_items=1, max_items=3)
 
 
 class AuthorityUpdateRequest(BaseModel):
@@ -56,6 +68,10 @@ class AuthorityUpdateRequest(BaseModel):
     authority_type: Optional[AuthorityType] = None
     display_name: Optional[str] = Field(None, min_length=1, max_length=255)
     additional_data: Optional[str] = None
+    codigo_municipio: Optional[str] = Field(None, max_length=10)
+    codigo_departamento: Optional[str] = Field(None, max_length=10)
+    codigo_region: Optional[str] = Field(None, max_length=10)
+    cedula: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
     # Opcional: permitir reasignación de instrumentos (permite múltiples asignaciones)
     instrument_assignments: Optional[List[InstrumentAssignment]] = Field(None, min_items=1)
@@ -69,6 +85,10 @@ class AuthorityDetailResponse(BaseModel):
     authority_type: AuthorityType
     display_name: str
     additional_data: Optional[str]
+    codigo_municipio: Optional[str]
+    codigo_departamento: Optional[str]
+    codigo_region: Optional[str]
+    cedula: Optional[str]
     instrument_assignments: List["InstrumentAssignmentResponse"]
     documents_count: int = 0
     

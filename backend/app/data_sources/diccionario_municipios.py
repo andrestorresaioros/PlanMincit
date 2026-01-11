@@ -265,6 +265,43 @@ MUNICIPIOS_COLOMBIA = {
     "ZETAQUIRA": "15897", "ZIPACON": "25898", "ZIPAQUIRA": "25899", "ZONA BANANERA": "47980",
 }
 
+# Diccionario de departamentos con sus códigos
+DEPARTAMENTOS_COLOMBIA = {
+    "AMAZONAS": "91",
+    "ANTIOQUIA": "05",
+    "ARAUCA": "81",
+    "ATLANTICO": "08",
+    "BOLIVAR": "13",
+    "BOYACA": "15",
+    "CALDAS": "17",
+    "CAQUETA": "18",
+    "CASANARE": "85",
+    "CAUCA": "19",
+    "CESAR": "20",
+    "CHOCO": "27",
+    "CORDOBA": "23",
+    "CUNDINAMARCA": "25",
+    "GUAINIA": "94",
+    "GUAVIARE": "95",
+    "HUILA": "41",
+    "LA GUAJIRA": "44",
+    "MAGDALENA": "47",
+    "META": "50",
+    "NARINO": "52",
+    "NORTE DE SANTANDER": "54",
+    "PUTUMAYO": "86",
+    "QUINDIO": "63",
+    "RISARALDA": "66",
+    "SAN ANDRES Y PROVIDENCIA": "88",
+    "SANTANDER": "68",
+    "SUCRE": "70",
+    "TOLIMA": "73",
+    "VALLE DEL CAUCA": "76",
+    "VAUPES": "97",
+    "VICHADA": "99",
+    "BOGOTA D.C.": "11",
+}
+
 # Para compatibilidad con services/ndtt_sync.py que espera municipios_data con estructura diferente
 # Esta es una versión simplificada
 municipios_data = {codigo: {"municipio": nombre} for nombre, codigo in MUNICIPIOS_COLOMBIA.items()}

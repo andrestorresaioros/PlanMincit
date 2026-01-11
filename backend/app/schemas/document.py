@@ -40,6 +40,7 @@ class DocumentResponse(DocumentBase):
     owner_display_name: str
     original_filename: str
     file_path: str
+    download_url: str  # URL pública para descargar
     content_type: Optional[str]
     size_bytes: int
     created_at: datetime
@@ -47,6 +48,34 @@ class DocumentResponse(DocumentBase):
     
     class Config:
         from_attributes = True
+
+
+class DocumentItemResponse(BaseModel):
+    """Schema for simple document item in hierarchical response"""
+    nombre: str
+    urlfiledoc: str
+
+
+class CriterioDocumentResponse(BaseModel):
+    """Schema for criterion with its documents"""
+    nombre_criterio: str
+    criterios_documentos: list[DocumentItemResponse]
+
+
+class EjeDocumentResponse(BaseModel):
+    """Schema for axis (eje) with its criteria and documents"""
+    eje: str
+    criterios: list[CriterioDocumentResponse]
+
+
+class AuthorityDocumentsResponse(BaseModel):
+    """Schema for hierarchical documents response by authority"""
+    cod_municipio: Optional[str] = None
+    cod_departamento: Optional[str] = None
+    cod_region: Optional[str] = None
+    cedula: Optional[str] = None
+    nombre_autoridad: str
+    respuesta: list[EjeDocumentResponse]
 
 
 class DocumentListResponse(BaseModel):

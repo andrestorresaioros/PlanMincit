@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from urllib.parse import quote
 from app.db.session import get_db
 from app.models.user import User
 from app.models.document import Document
@@ -41,8 +42,8 @@ async def create_authority(
     
     Validations:
     - Email must be unique
-    - Exactly 3 instruments must be assigned
-    - Only 1 LEADER per instrument globally
+    - At least 1 instrument must be assigned (maximum 3)
+    - Password must be at least 8 characters
     - Maximum 8 STRATEGIC_ALLY per instrument globally
     """
     user = AuthorityService.create_authority_user(db, data)
@@ -77,6 +78,10 @@ async def create_authority(
         authority_type=profile.authority_type,
         display_name=profile.display_name,
         additional_data=profile.additional_data,
+        codigo_municipio=profile.codigo_municipio,
+        codigo_departamento=profile.codigo_departamento,
+        codigo_region=profile.codigo_region,
+        cedula=profile.cedula,
         instrument_assignments=assignments,
         documents_count=documents_count
     )
@@ -125,6 +130,10 @@ async def list_authorities(
                 authority_type=profile.authority_type,
                 display_name=profile.display_name,
                 additional_data=profile.additional_data,
+                codigo_municipio=profile.codigo_municipio,
+                codigo_departamento=profile.codigo_departamento,
+                codigo_region=profile.codigo_region,
+                cedula=profile.cedula,
                 instrument_assignments=assignments,
                 documents_count=documents_count
             )
@@ -179,6 +188,10 @@ async def get_authority_detail(
         authority_type=profile.authority_type,
         display_name=profile.display_name,
         additional_data=profile.additional_data,
+        codigo_municipio=profile.codigo_municipio,
+        codigo_departamento=profile.codigo_departamento,
+        codigo_region=profile.codigo_region,
+        cedula=profile.cedula,
         instrument_assignments=assignments,
         documents_count=documents_count
     )
@@ -228,6 +241,10 @@ async def update_authority(
         authority_type=profile.authority_type,
         display_name=profile.display_name,
         additional_data=profile.additional_data,
+        codigo_municipio=profile.codigo_municipio,
+        codigo_departamento=profile.codigo_departamento,
+        codigo_region=profile.codigo_region,
+        cedula=profile.cedula,
         instrument_assignments=assignments,
         documents_count=documents_count
     )
@@ -246,6 +263,9 @@ async def list_all_documents(
     
     result = []
     for doc in documents:
+        # Convertir file_path a URL pública
+        download_url = f"/{quote(doc.file_path.replace(chr(92), '/'))}" if doc.file_path else None
+        
         result.append(
             DocumentResponse(
                 id=doc.id,
@@ -258,6 +278,7 @@ async def list_all_documents(
                 description=doc.description,
                 original_filename=doc.original_filename,
                 file_path=doc.file_path,
+                download_url=download_url,
                 content_type=doc.content_type,
                 size_bytes=doc.size_bytes,
                 created_at=doc.created_at,
@@ -281,6 +302,9 @@ async def update_document_admin(
     """
     document = DocumentService.update_document(db, current_user, document_id, data)
     
+    # Convertir file_path a URL pública
+    download_url = f"/{quote(document.file_path.replace(chr(92), '/'))}" if document.file_path else None
+    
     return DocumentResponse(
         id=document.id,
         instrument_id=document.instrument_id,
@@ -292,6 +316,7 @@ async def update_document_admin(
         description=document.description,
         original_filename=document.original_filename,
         file_path=document.file_path,
+        download_url=download_url,
         content_type=document.content_type,
         size_bytes=document.size_bytes,
         created_at=document.created_at,
@@ -311,6 +336,43 @@ async def delete_document_admin(
     """
     DocumentService.delete_document(db, current_user, document_id)
     return None
+
+
+@router.delete("/authorities/{authority_id}/instruments/{instrument_code}/documents", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_authority_instrument_documents(
+    authority_id: int,
+    instrument_code: str,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete all documents for a specific authority and instrument.
+    Only admins can delete documents.
+    """
+    from app.models.instrument import Instrument
+    
+    # Verificar que el instrumento existe
+    instrument = db.query(Instrument).filter(Instrument.code == instrument_code).first()
+    if not instrument:
+        raise HTTPException(status_code=404, detail=f"Instrument with code '{instrument_code}' not found")
+    
+    # Verificar que la autoridad existe
+    authority = db.query(User).filter(User.id == authority_id).first()
+    if not authority:
+        raise HTTPException(status_code=404, detail=f"Authority with id {authority_id} not found")
+    
+    # Buscar y eliminar todos los documentos de esta autoridad para este instrumento
+    documents = db.query(Document).filter(
+        Document.owner_authority_user_id == authority_id,
+        Document.instrument_id == instrument.id
+    ).all()
+    
+    # Eliminar archivos físicos y registros de BD
+    for document in documents:
+        DocumentService.delete_document(db, current_user, document.id)
+    
+    return None
+
 
 @router.post("/oauth/clients", response_model=OAuthClientCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_oauth_client(

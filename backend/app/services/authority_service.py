@@ -3,11 +3,12 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.user import User, UserRole
-from app.models.authority_profile import AuthorityProfile
+from app.models.authority_profile import AuthorityProfile, AuthorityType
 from app.models.instrument import Instrument, InstrumentCode
 from app.models.authority_instrument_assignment import AuthorityInstrumentAssignment, AssignmentRole
 from app.core.security import get_password_hash
 from app.schemas.authority import AuthorityCreateRequest, InstrumentAssignment
+from app.services.ndtt_service import NDTTService
 
 
 class AuthorityService:
@@ -53,28 +54,12 @@ class AuthorityService:
             if not instrument:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Instrumento {instrument_code} no encontrado"
+                    detail=f"Instrumento '{instrument_code.value}' no encontrado"
                 )
             
-            if assignment_role == AssignmentRole.LEADER_PLANNING:
-                # Check if there's already a leader for this instrument
-                existing_leader_query = db.query(AuthorityInstrumentAssignment).filter(
-                    AuthorityInstrumentAssignment.instrument_id == instrument.id,
-                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.LEADER_PLANNING
-                )
-                if exclude_user_id:
-                    existing_leader_query = existing_leader_query.filter(
-                        AuthorityInstrumentAssignment.authority_user_id != exclude_user_id
-                    )
-                
-                existing_leader = existing_leader_query.first()
-                if existing_leader:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya existe un líder para el instrumento {instrument_code}"
-                    )
-            
-            elif assignment_role == AssignmentRole.STRATEGIC_ALLY:
+            # Permitir múltiples líderes - no hay restricción
+            # Solo verificamos límite de aliados estratégicos
+            if assignment_role == AssignmentRole.STRATEGIC_ALLY:
                 # Check if there are already 8 allies for this instrument
                 allies_count_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
@@ -89,7 +74,7 @@ class AuthorityService:
                 if allies_count >= 8:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya hay 8 aliados para el instrumento {instrument_code} (máximo permitido)"
+                        detail=f"Ya hay 8 aliados estratégicos para el instrumento '{instrument_code.value}' (máximo permitido)"
                     )
     
     @staticmethod
@@ -106,6 +91,30 @@ class AuthorityService:
         # Validate instrument assignments
         AuthorityService.validate_instrument_assignments(db, data.instrument_assignments)
         
+        # Buscar códigos automáticamente según el tipo de autoridad
+        codigo_municipio = data.codigo_municipio
+        codigo_departamento = data.codigo_departamento
+        codigo_region = data.codigo_region
+        cedula = data.cedula
+        
+        # Si es municipio y no se proporcionó código, buscar por display_name
+        if data.authority_type == AuthorityType.MUNICIPIO and not codigo_municipio and data.display_name:
+            codigo_municipio = NDTTService.get_codigo_municipio(data.display_name)
+            if not codigo_municipio:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No se encontró el código DANE para el municipio '{data.display_name}'"
+                )
+        
+        # Si es departamento y no se proporcionó código, buscar por display_name
+        if data.authority_type == AuthorityType.DEPARTAMENTO and not codigo_departamento and data.display_name:
+            codigo_departamento = NDTTService.get_codigo_departamento(data.display_name)
+            if not codigo_departamento:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No se encontró el código para el departamento '{data.display_name}'"
+                )
+        
         # Create user
         user = User(
             email=data.email,
@@ -121,7 +130,11 @@ class AuthorityService:
             user_id=user.id,
             authority_type=data.authority_type,
             display_name=data.display_name,
-            additional_data=data.additional_data
+            additional_data=data.additional_data,
+            codigo_municipio=codigo_municipio,
+            codigo_departamento=codigo_departamento,
+            codigo_region=codigo_region,
+            cedula=cedula
         )
         db.add(profile)
         
@@ -134,7 +147,8 @@ class AuthorityService:
             assignment_obj = AuthorityInstrumentAssignment(
                 authority_user_id=user.id,
                 instrument_id=instrument.id,
-                assignment_role=assignment.role
+                assignment_role=assignment.role,
+                territory_name=assignment.territory_name
             )
             db.add(assignment_obj)
         
@@ -170,7 +184,10 @@ class AuthorityService:
             user.is_active = update_data["is_active"]
         
         # Update profile fields
-        profile_fields = ["authority_type", "display_name", "additional_data"]
+        profile_fields = [
+            "authority_type", "display_name", "additional_data",
+            "codigo_municipio", "codigo_departamento", "codigo_region", "cedula"
+        ]
         profile_updates = {k: v for k, v in update_data.items() if k in profile_fields and v is not None}
         if profile_updates and user.authority_profile:
             for key, value in profile_updates.items():

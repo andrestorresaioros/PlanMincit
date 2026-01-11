@@ -4,7 +4,7 @@ import requests
 import unicodedata
 from typing import Optional, Dict
 from fastapi import HTTPException, status
-from app.data_sources.diccionario_municipios import MUNICIPIOS_COLOMBIA
+from app.data_sources.diccionario_municipios import MUNICIPIOS_COLOMBIA, DEPARTAMENTOS_COLOMBIA
 
 
 # NDTT API Configuration
@@ -149,3 +149,31 @@ class NDTTService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Error interno al consultar el servicio NDTT"
             )
+    
+    @staticmethod
+    def get_codigo_municipio(nombre_municipio: str) -> Optional[str]:
+        """
+        Get municipality code from name
+        
+        Args:
+            nombre_municipio: Municipality name (e.g., "Aguadas", "Bogotá")
+            
+        Returns:
+            Municipality DANE code (e.g., "17013", "11001") or None if not found
+        """
+        nombre_normalizado = normalize_text(nombre_municipio)
+        return MUNICIPIOS_COLOMBIA.get(nombre_normalizado)
+    
+    @staticmethod
+    def get_codigo_departamento(nombre_departamento: str) -> Optional[str]:
+        """
+        Get department code from name
+        
+        Args:
+            nombre_departamento: Department name (e.g., "Caldas", "Antioquia")
+            
+        Returns:
+            Department code (e.g., "17", "05") or None if not found
+        """
+        nombre_normalizado = normalize_text(nombre_departamento)
+        return DEPARTAMENTOS_COLOMBIA.get(nombre_normalizado)
