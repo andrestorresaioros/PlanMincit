@@ -24,7 +24,7 @@ class AuthorityService:
         Validate instrument assignments against business rules:
         - At least 1 instrument must be assigned
         - Only 1 LEADER per instrument globally
-        - Maximum 8 STRATEGIC_ALLY per instrument globally
+        - Maximum 10 STRATEGIC_ALLY per instrument globally
         """
         if len(assignments) < 1:
             raise HTTPException(
@@ -57,10 +57,26 @@ class AuthorityService:
                     detail=f"Instrumento '{instrument_code.value}' no encontrado"
                 )
             
-            # Permitir múltiples líderes - no hay restricción
-            # Solo verificamos límite de aliados estratégicos
+            # Validar restricción de líder: máximo 1 por instrumento
+            if assignment_role == AssignmentRole.LEADER_PLANNING:
+                leaders_count_query = db.query(AuthorityInstrumentAssignment).filter(
+                    AuthorityInstrumentAssignment.instrument_id == instrument.id,
+                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.LEADER_PLANNING
+                )
+                if exclude_user_id:
+                    leaders_count_query = leaders_count_query.filter(
+                        AuthorityInstrumentAssignment.authority_user_id != exclude_user_id
+                    )
+                
+                leaders_count = leaders_count_query.count()
+                if leaders_count >= 1:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Ya existe un líder de planificación para el instrumento '{instrument_code.value}'. Solo se permite 1 líder por instrumento."
+                    )
+            
+            # Validar restricción de aliados: máximo 10 por instrumento
             if assignment_role == AssignmentRole.STRATEGIC_ALLY:
-                # Check if there are already 8 allies for this instrument
                 allies_count_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
                     AuthorityInstrumentAssignment.assignment_role == AssignmentRole.STRATEGIC_ALLY
@@ -71,10 +87,10 @@ class AuthorityService:
                     )
                 
                 allies_count = allies_count_query.count()
-                if allies_count >= 8:
+                if allies_count >= 10:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya hay 8 aliados estratégicos para el instrumento '{instrument_code.value}' (máximo permitido)"
+                        detail=f"Ya hay 10 aliados estratégicos para el instrumento '{instrument_code.value}' (máximo permitido)"
                     )
     
     @staticmethod
@@ -91,29 +107,38 @@ class AuthorityService:
         # Validate instrument assignments
         AuthorityService.validate_instrument_assignments(db, data.instrument_assignments)
         
-        # Buscar códigos automáticamente según el tipo de autoridad
+        # Determinar códigos según el tipo de autoridad y el territorio de las asignaciones
         codigo_municipio = data.codigo_municipio
         codigo_departamento = data.codigo_departamento
         codigo_region = data.codigo_region
         cedula = data.cedula
         
-        # Si es municipio y no se proporcionó código, buscar por display_name
-        if data.authority_type == AuthorityType.MUNICIPIO and not codigo_municipio and data.display_name:
-            codigo_municipio = NDTTService.get_codigo_municipio(data.display_name)
-            if not codigo_municipio:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No se encontró el código DANE para el municipio '{data.display_name}'"
-                )
+        # Obtener el territorio de la primera asignación (si existe)
+        territorio = None
+        if data.instrument_assignments and len(data.instrument_assignments) > 0:
+            territorio = data.instrument_assignments[0].territory_name
         
-        # Si es departamento y no se proporcionó código, buscar por display_name
-        if data.authority_type == AuthorityType.DEPARTAMENTO and not codigo_departamento and data.display_name:
-            codigo_departamento = NDTTService.get_codigo_departamento(data.display_name)
-            if not codigo_departamento:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No se encontró el código para el departamento '{data.display_name}'"
-                )
+        # MUNICIPIO: Buscar código DANE desde el territorio (para NDTT y endpoint)
+        if data.authority_type == AuthorityType.MUNICIPIO and territorio and not codigo_municipio:
+            try:
+                codigo_municipio = NDTTService.get_codigo_municipio(territorio)
+            except:
+                # Si no se encuentra automáticamente, dejar vacío
+                pass
+        
+        # DEPARTAMENTO: Buscar código desde el territorio (solo para endpoint, no NDTT)
+        if data.authority_type == AuthorityType.DEPARTAMENTO and territorio and not codigo_departamento:
+            try:
+                codigo_departamento = NDTTService.get_codigo_departamento(territorio)
+            except:
+                # Si no se encuentra automáticamente, dejar vacío
+                pass
+        
+        # REGION: El código debe venir del campo codigo_region (manual)
+        # No se busca automáticamente
+        
+        # INDEPENDIENTE: El código es la cédula (para endpoint)
+        # Ya viene en data.cedula
         
         # Create user
         user = User(

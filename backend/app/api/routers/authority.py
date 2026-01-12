@@ -26,14 +26,16 @@ public_router = APIRouter(tags=["authority-public"])
 @router.get("/documents", response_model=List[DocumentResponse])
 async def get_documents_by_instrument(
     instrument: InstrumentCode = Query(..., description="Código del instrumento (RURAL, URBANO, REGION)"),
+    territory_name: Optional[str] = Query(None, description="Nombre del territorio para filtrar"),
     current_user: User = Depends(require_authority),
     db: Session = Depends(get_db)
 ):
     """
     Get all documents for a specific instrument.
     User must have assignment to the instrument (leader or ally).
+    Optionally filter by territory name.
     """
-    documents = DocumentService.get_documents_by_instrument(db, current_user, instrument)
+    documents = DocumentService.get_documents_by_instrument(db, current_user, instrument, territory_name)
     
     result = []
     for doc in documents:
@@ -202,17 +204,18 @@ async def download_document(
 
 @router.get("/ndtt-report", response_model=NDTTInfoResponse)
 async def get_ndtt_report(
+    territory_name: Optional[str] = Query(None, description="Nombre del territorio"),
     current_user: User = Depends(require_authority),
     db: Session = Depends(get_db)
 ):
     """
     Get NDTT report information for the current user's municipality.
-    Searches by municipality name from the user's territory assignment.
+    Searches by municipality name from the user's territory assignment or from parameter.
     """
-    # Obtener el nombre del territorio del usuario
-    nombre_municipio = None
+    # Usar el territorio del parámetro si está presente, sino buscar en las asignaciones
+    nombre_municipio = territory_name
     
-    if current_user.instrument_assignments:
+    if not nombre_municipio and current_user.instrument_assignments:
         # Obtener el territorio de la primera asignación
         for assignment in current_user.instrument_assignments:
             if assignment.territory_name:

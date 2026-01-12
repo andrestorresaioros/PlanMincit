@@ -133,9 +133,10 @@ class DocumentService:
     def get_documents_by_instrument(
         db: Session,
         user: User,
-        instrument_code: InstrumentCode
+        instrument_code: InstrumentCode,
+        territory_name: Optional[str] = None
     ) -> List[Document]:
-        """Get all documents for an instrument (filtered by user ownership)"""
+        """Get all documents for an instrument (filtered by user ownership and optionally by territory)"""
         # Admin can see all documents for the instrument
         if user.role == UserRole.ADMIN:
             instrument = db.query(Instrument).filter(Instrument.code == instrument_code).first()
@@ -153,6 +154,21 @@ class DocumentService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tiene acceso a este instrumento"
             )
+        
+        # Si se especifica territorio, verificar que el usuario tenga asignación para ese territorio en ese instrumento
+        if territory_name:
+            # Buscar una asignación específica para este instrumento y territorio
+            territory_assignment = db.query(AuthorityInstrumentAssignment).filter(
+                AuthorityInstrumentAssignment.authority_user_id == user.id,
+                AuthorityInstrumentAssignment.instrument_id == assignment.instrument_id,
+                AuthorityInstrumentAssignment.territory_name == territory_name
+            ).first()
+            
+            if not territory_assignment:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"No tiene acceso al territorio '{territory_name}' en este instrumento"
+                )
         
         # Authority users only see their own documents
         return db.query(Document).filter(
