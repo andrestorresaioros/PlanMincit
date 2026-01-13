@@ -75,6 +75,7 @@ async def upload_document(
     description: Optional[str] = Form(None, description="Descripción del documento"),
     phase: Optional[str] = Form(None, description="Fase del plan"),
     component: Optional[str] = Form(None, description="Componente del plan (slug)"),
+    territory_name: Optional[str] = Form(None, description="Territorio al que pertenece el documento"),
     file: UploadFile = File(..., description="Archivo a subir"),
     current_user: User = Depends(require_authority),
     db: Session = Depends(get_db)
@@ -82,9 +83,10 @@ async def upload_document(
     """
     Upload a new document for an instrument.
     Only LEADERS can upload documents.
+    Territory name is automatically assigned from user's assignment if not provided.
     """
     document = await DocumentService.create_document(
-        db, current_user, instrument_code, title, description, file, phase, component
+        db, current_user, instrument_code, title, description, file, phase, component, territory_name
     )
     
     # Convertir file_path a URL pública

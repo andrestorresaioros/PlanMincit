@@ -11,6 +11,7 @@ class DocumentBase(BaseModel):
     description: Optional[str] = None
     phase: Optional[str] = Field(None, max_length=100)
     component: Optional[str] = Field(None, max_length=100)
+    territory_name: Optional[str] = Field(None, max_length=255)
 
 
 class DocumentCreate(DocumentBase):
@@ -28,6 +29,7 @@ class DocumentUpdate(BaseModel):
     description: Optional[str] = None
     phase: Optional[str] = Field(None, max_length=100)
     component: Optional[str] = Field(None, max_length=100)
+    territory_name: Optional[str] = Field(None, max_length=255)
 
 
 class DocumentResponse(DocumentBase):

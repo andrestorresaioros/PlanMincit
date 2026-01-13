@@ -23,8 +23,8 @@ class AuthorityService:
         """
         Validate instrument assignments against business rules:
         - At least 1 instrument must be assigned
-        - Only 1 LEADER per instrument globally
-        - Maximum 10 STRATEGIC_ALLY per instrument globally
+        - Only 1 LEADER per instrument+territory combination
+        - Maximum 10 STRATEGIC_ALLY per instrument+territory combination
         """
         if len(assignments) < 1:
             raise HTTPException(
@@ -46,6 +46,7 @@ class AuthorityService:
             # Handle both dict and Pydantic objects
             instrument_code = assignment.get('instrument_code') if isinstance(assignment, dict) else assignment.instrument_code
             assignment_role = assignment.get('role') if isinstance(assignment, dict) else assignment.role
+            territory_name = assignment.get('territory_name') if isinstance(assignment, dict) else getattr(assignment, 'territory_name', None)
             
             instrument = db.query(Instrument).filter(
                 Instrument.code == instrument_code
@@ -57,11 +58,12 @@ class AuthorityService:
                     detail=f"Instrumento '{instrument_code.value}' no encontrado"
                 )
             
-            # Validar restricción de líder: máximo 1 por instrumento
+            # Validar restricción de líder: máximo 1 por instrumento + territorio
             if assignment_role == AssignmentRole.LEADER_PLANNING:
                 leaders_count_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
-                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.LEADER_PLANNING
+                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.LEADER_PLANNING,
+                    AuthorityInstrumentAssignment.territory_name == territory_name
                 )
                 if exclude_user_id:
                     leaders_count_query = leaders_count_query.filter(
@@ -72,14 +74,15 @@ class AuthorityService:
                 if leaders_count >= 1:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya existe un líder de planificación para el instrumento '{instrument_code.value}'. Solo se permite 1 líder por instrumento."
+                        detail=f"Ya existe un líder de planificación para el instrumento '{instrument_code.value}' en el territorio '{territory_name}'. Solo se permite 1 líder por instrumento y territorio."
                     )
             
-            # Validar restricción de aliados: máximo 10 por instrumento
+            # Validar restricción de aliados: máximo 10 por instrumento + territorio
             if assignment_role == AssignmentRole.STRATEGIC_ALLY:
                 allies_count_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
-                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.STRATEGIC_ALLY
+                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.STRATEGIC_ALLY,
+                    AuthorityInstrumentAssignment.territory_name == territory_name
                 )
                 if exclude_user_id:
                     allies_count_query = allies_count_query.filter(
@@ -90,7 +93,7 @@ class AuthorityService:
                 if allies_count >= 10:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Ya hay 10 aliados estratégicos para el instrumento '{instrument_code.value}' (máximo permitido)"
+                        detail=f"Ya hay 10 aliados estratégicos para el instrumento '{instrument_code.value}' en el territorio '{territory_name}' (máximo permitido)"
                     )
     
     @staticmethod

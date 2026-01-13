@@ -89,7 +89,8 @@ class DocumentService:
         description: Optional[str],
         file: UploadFile,
         phase: Optional[str] = None,
-        component: Optional[str] = None
+        component: Optional[str] = None,
+        territory_name: Optional[str] = None
     ) -> Document:
         """Create a new document (only leaders can create)"""
         # Check if user is leader of this instrument
@@ -107,6 +108,16 @@ class DocumentService:
                 detail="Instrumento no encontrado"
             )
         
+        # Si no se proporciona territory_name, intentar obtenerlo de la asignación del usuario
+        if not territory_name and user.role != UserRole.ADMIN:
+            assignment = db.query(AuthorityInstrumentAssignment).filter(
+                AuthorityInstrumentAssignment.authority_user_id == user.id,
+                AuthorityInstrumentAssignment.instrument_id == instrument.id,
+                AuthorityInstrumentAssignment.assignment_role == AssignmentRole.LEADER_PLANNING
+            ).first()
+            if assignment:
+                territory_name = assignment.territory_name
+        
         # Save file
         file_path, size_bytes = await DocumentService.save_uploaded_file(file, instrument_code.value)
         
@@ -121,7 +132,8 @@ class DocumentService:
             content_type=file.content_type,
             size_bytes=size_bytes,
             phase=phase,
-            component=component
+            component=component,
+            territory_name=territory_name
         )
         
         db.add(document)
@@ -136,7 +148,11 @@ class DocumentService:
         instrument_code: InstrumentCode,
         territory_name: Optional[str] = None
     ) -> List[Document]:
-        """Get all documents for an instrument (filtered by user ownership and optionally by territory)"""
+        """
+        Get all documents for an instrument.
+        - Leaders and Allies can see ALL documents from their assigned territories (not just their own)
+        - Admin can see all documents for the instrument
+        """
         # Admin can see all documents for the instrument
         if user.role == UserRole.ADMIN:
             instrument = db.query(Instrument).filter(Instrument.code == instrument_code).first()
@@ -155,26 +171,39 @@ class DocumentService:
                 detail="No tiene acceso a este instrumento"
             )
         
-        # Si se especifica territorio, verificar que el usuario tenga asignación para ese territorio en ese instrumento
+        # Obtener todos los territorios a los que el usuario tiene acceso en este instrumento
+        user_territories = db.query(AuthorityInstrumentAssignment.territory_name).filter(
+            AuthorityInstrumentAssignment.authority_user_id == user.id,
+            AuthorityInstrumentAssignment.instrument_id == assignment.instrument_id,
+            AuthorityInstrumentAssignment.territory_name.isnot(None)
+        ).all()
+        
+        # Extraer nombres de territorios
+        territory_names = [t[0] for t in user_territories if t[0]]
+        
+        # Si no tiene territorios asignados, no puede ver documentos
+        if not territory_names:
+            return []
+        
+        # Construir consulta base: todos los documentos del instrumento en los territorios del usuario
+        query = db.query(Document).filter(
+            Document.instrument_id == assignment.instrument_id,
+            Document.territory_name.in_(territory_names)
+        )
+        
+        # Si se especifica un territorio específico, filtrar solo por ese territorio
         if territory_name:
-            # Buscar una asignación específica para este instrumento y territorio
-            territory_assignment = db.query(AuthorityInstrumentAssignment).filter(
-                AuthorityInstrumentAssignment.authority_user_id == user.id,
-                AuthorityInstrumentAssignment.instrument_id == assignment.instrument_id,
-                AuthorityInstrumentAssignment.territory_name == territory_name
-            ).first()
-            
-            if not territory_assignment:
+            # Verificar que el usuario tenga asignación para ese territorio
+            if territory_name not in territory_names:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"No tiene acceso al territorio '{territory_name}' en este instrumento"
                 )
+            
+            # Filtrar solo por ese territorio
+            query = query.filter(Document.territory_name == territory_name)
         
-        # Authority users only see their own documents
-        return db.query(Document).filter(
-            Document.instrument_id == assignment.instrument_id,
-            Document.owner_authority_user_id == user.id
-        ).all()
+        return query.all()
     
     @staticmethod
     def get_all_documents(db: Session) -> List[Document]:
@@ -201,12 +230,23 @@ class DocumentService:
                 detail="Documento no encontrado"
             )
         
-        # Check permissions: Admin can edit any document, authority can only edit their own
+        # Check permissions
         if user.role != UserRole.ADMIN:
+            # Solo el dueño del documento puede editarlo
             if document.owner_authority_user_id != user.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Solo puedes editar tus propios documentos"
+                )
+            
+            # Verificar que el usuario sea líder del instrumento
+            is_leader = DocumentService.check_user_is_instrument_leader(
+                db, user.id, document.instrument.code
+            )
+            if not is_leader:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo el líder de planificación puede editar documentos para este instrumento"
                 )
         
         # Update fields
@@ -218,6 +258,8 @@ class DocumentService:
             document.phase = update_data.phase
         if update_data.component is not None:
             document.component = update_data.component
+        if hasattr(update_data, 'territory_name') and update_data.territory_name is not None:
+            document.territory_name = update_data.territory_name
         
         db.commit()
         db.refresh(document)
@@ -233,12 +275,23 @@ class DocumentService:
                 detail="Documento no encontrado"
             )
         
-        # Check permissions: Admin can delete any document, authority can only delete their own
+        # Check permissions
         if user.role != UserRole.ADMIN:
+            # Solo el dueño del documento puede eliminarlo
             if document.owner_authority_user_id != user.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Solo puedes eliminar tus propios documentos"
+                )
+            
+            # Verificar que el usuario sea líder del instrumento
+            is_leader = DocumentService.check_user_is_instrument_leader(
+                db, user.id, document.instrument.code
+            )
+            if not is_leader:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo el líder de planificación puede eliminar documentos para este instrumento"
                 )
         
         # Delete file from disk

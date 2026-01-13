@@ -21,6 +21,7 @@ class Document(Base):
     size_bytes = Column(BigInteger, nullable=False)
     phase = Column(String(100), nullable=True)  # Fase del plan (Alistamiento, Diagnóstico, etc.)
     component = Column(String(100), nullable=True)  # Componente del plan (slug)
+    territory_name = Column(String(255), nullable=True, index=True)  # Territorio asociado al documento
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

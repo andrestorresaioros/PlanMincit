@@ -8,8 +8,8 @@ from app.db.session import Base
 
 class AssignmentRole(str, enum.Enum):
     """Assignment roles for instruments"""
-    LEADER_PLANNING = "LEADER_PLANNING"  # Líder de planificación (1 por instrumento)
-    STRATEGIC_ALLY = "STRATEGIC_ALLY"    # Aliado estratégico (max 8 por instrumento)
+    LEADER_PLANNING = "LEADER_PLANNING"  # Líder de planificación (1 por instrumento+territorio)
+    STRATEGIC_ALLY = "STRATEGIC_ALLY"    # Aliado estratégico (max 10 por instrumento+territorio)
 
 
 class AuthorityInstrumentAssignment(Base):

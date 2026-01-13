@@ -44,7 +44,8 @@ async def create_authority(
     - Email must be unique
     - At least 1 instrument must be assigned (maximum 3)
     - Password must be at least 8 characters
-    - Maximum 8 STRATEGIC_ALLY per instrument globally
+    - Maximum 1 LEADER_PLANNING per instrument+territory
+    - Maximum 10 STRATEGIC_ALLY per instrument+territory
     """
     user = AuthorityService.create_authority_user(db, data)
     
