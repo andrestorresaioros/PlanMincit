@@ -79,6 +79,20 @@ class AuthorityService:
             
             # Validar restricción de aliados: máximo 10 por instrumento + territorio
             if assignment_role == AssignmentRole.STRATEGIC_ALLY:
+                # NUEVA VALIDACIÓN: Verificar que existe un líder en ese instrumento para ese territorio
+                leader_exists = db.query(AuthorityInstrumentAssignment).filter(
+                    AuthorityInstrumentAssignment.instrument_id == instrument.id,
+                    AuthorityInstrumentAssignment.assignment_role == AssignmentRole.LEADER_PLANNING,
+                    AuthorityInstrumentAssignment.territory_name == territory_name
+                ).first()
+                
+                if not leader_exists:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"No se puede asignar como aliado estratégico en el instrumento '{instrument_code.value}' para el territorio '{territory_name}'. Solo puede ser aliado en el mismo instrumento donde existe un líder de planificación para ese territorio. Debe haber un líder creado primero en ese instrumento y territorio específico."
+                    )
+                
+                # Verificar máximo de aliados
                 allies_count_query = db.query(AuthorityInstrumentAssignment).filter(
                     AuthorityInstrumentAssignment.instrument_id == instrument.id,
                     AuthorityInstrumentAssignment.assignment_role == AssignmentRole.STRATEGIC_ALLY,
@@ -99,8 +113,62 @@ class AuthorityService:
     @staticmethod
     def create_authority_user(db: Session, data: AuthorityCreateRequest) -> User:
         """Create a new authority user with profile and instrument assignments"""
+        
+        # Obtener el territorio de la primera asignación (si existe)
+        territorio = None
+        if data.instrument_assignments and len(data.instrument_assignments) > 0:
+            territorio = data.instrument_assignments[0].territory_name
+        
+        # Determinar códigos según el tipo de autoridad
+        codigo_municipio = data.codigo_municipio
+        codigo_departamento = data.codigo_departamento
+        codigo_region = data.codigo_region
+        cedula = data.cedula
+        
+        # Generar email automáticamente para MUNICIPIO y DEPARTAMENTO
+        email = data.email
+        
+        # MUNICIPIO: Email es el código DANE del municipio
+        if data.authority_type == AuthorityType.MUNICIPIO:
+            if territorio and not codigo_municipio:
+                try:
+                    codigo_municipio = NDTTService.get_codigo_municipio(territorio)
+                except:
+                    pass
+            
+            if codigo_municipio:
+                email = f"{codigo_municipio}@municipio.gov.co"
+            elif not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se pudo determinar el código DANE del municipio desde el territorio. Verifique el nombre del territorio."
+                )
+        
+        # DEPARTAMENTO: Email es el código del departamento
+        elif data.authority_type == AuthorityType.DEPARTAMENTO:
+            if territorio and not codigo_departamento:
+                try:
+                    codigo_departamento = NDTTService.get_codigo_departamento(territorio)
+                except:
+                    pass
+            
+            if codigo_departamento:
+                email = f"{codigo_departamento}@departamento.gov.co"
+            elif not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se pudo determinar el código del departamento desde el territorio. Verifique el nombre del territorio."
+                )
+        
+        # REGION e INDEPENDIENTE: Email debe venir en el request
+        elif not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El campo email es requerido para autoridades de tipo REGION e INDEPENDIENTE"
+            )
+        
         # Check if email already exists
-        existing_user = db.query(User).filter(User.email == data.email).first()
+        existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -110,42 +178,12 @@ class AuthorityService:
         # Validate instrument assignments
         AuthorityService.validate_instrument_assignments(db, data.instrument_assignments)
         
-        # Determinar códigos según el tipo de autoridad y el territorio de las asignaciones
-        codigo_municipio = data.codigo_municipio
-        codigo_departamento = data.codigo_departamento
-        codigo_region = data.codigo_region
-        cedula = data.cedula
-        
-        # Obtener el territorio de la primera asignación (si existe)
-        territorio = None
-        if data.instrument_assignments and len(data.instrument_assignments) > 0:
-            territorio = data.instrument_assignments[0].territory_name
-        
-        # MUNICIPIO: Buscar código DANE desde el territorio (para NDTT y endpoint)
-        if data.authority_type == AuthorityType.MUNICIPIO and territorio and not codigo_municipio:
-            try:
-                codigo_municipio = NDTTService.get_codigo_municipio(territorio)
-            except:
-                # Si no se encuentra automáticamente, dejar vacío
-                pass
-        
-        # DEPARTAMENTO: Buscar código desde el territorio (solo para endpoint, no NDTT)
-        if data.authority_type == AuthorityType.DEPARTAMENTO and territorio and not codigo_departamento:
-            try:
-                codigo_departamento = NDTTService.get_codigo_departamento(territorio)
-            except:
-                # Si no se encuentra automáticamente, dejar vacío
-                pass
-        
         # REGION: El código debe venir del campo codigo_region (manual)
-        # No se busca automáticamente
-        
         # INDEPENDIENTE: El código es la cédula (para endpoint)
-        # Ya viene en data.cedula
         
         # Create user
         user = User(
-            email=data.email,
+            email=email,
             hashed_password=get_password_hash(data.password),
             role=UserRole.AUTHORITY,
             is_active=True
@@ -256,3 +294,31 @@ class AuthorityService:
         db.commit()
         db.refresh(user)
         return user
+    
+    @staticmethod
+    def delete_authority(db: Session, user_id: int) -> dict:
+        """
+        Delete an authority user and all their associated data.
+        Returns information about what was deleted.
+        """
+        user = AuthorityService.get_authority_by_id(db, user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Autoridad no encontrada"
+            )
+        
+        # Count documents before deletion
+        from app.models.document import Document
+        documents_count = db.query(Document).filter(
+            Document.owner_authority_user_id == user_id
+        ).count()
+        
+        # Delete the user (cascade will handle profile, assignments, and documents)
+        db.delete(user)
+        db.commit()
+        
+        return {
+            "deleted_user_id": user_id,
+            "documents_deleted": documents_count
+        }

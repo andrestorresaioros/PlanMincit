@@ -251,6 +251,25 @@ async def update_authority(
     )
 
 
+@router.delete("/authorities/{authority_id}", status_code=status.HTTP_200_OK)
+async def delete_authority(
+    authority_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Delete an authority user and all their associated data.
+    Returns information about deleted documents.
+    Only admins can delete authorities.
+    """
+    result = AuthorityService.delete_authority(db, authority_id)
+    return {
+        "message": "Autoridad eliminada correctamente",
+        "deleted_user_id": result["deleted_user_id"],
+        "documents_deleted": result["documents_deleted"]
+    }
+
+
 @router.get("/documents", response_model=List[DocumentResponse])
 async def list_all_documents(
     db: Session = Depends(get_db),

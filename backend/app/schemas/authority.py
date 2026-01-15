@@ -51,7 +51,7 @@ class InstrumentAssignment(BaseModel):
 
 class AuthorityCreateRequest(BaseModel):
     """Schema for creating a new authority user (admin only)"""
-    email: EmailStr
+    email: Optional[EmailStr] = None  # Opcional: se genera automáticamente para MUNICIPIO y DEPARTAMENTO
     password: str = Field(..., min_length=8, description="La contraseña debe tener al menos 8 caracteres")
     authority_type: AuthorityType
     display_name: str = Field(..., min_length=1, max_length=255)
