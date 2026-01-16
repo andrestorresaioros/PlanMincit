@@ -56,6 +56,7 @@ class AuthorityCreateRequest(BaseModel):
     authority_type: AuthorityType
     display_name: str = Field(..., min_length=1, max_length=255)
     additional_data: Optional[str] = None
+    main_territory: Optional[str] = Field(None, description="Territorio principal que representa (para MUNICIPIO/DEPARTAMENTO)")
     codigo_municipio: Optional[str] = Field(None, max_length=10)
     codigo_departamento: Optional[str] = Field(None, max_length=10)
     codigo_region: Optional[str] = Field(None, max_length=10)

@@ -1,6 +1,5 @@
 """Admin endpoints - authority and document management"""
-
-from typing import List
+from typing import List, Dict
 from uuid import UUID
 from urllib.parse import quote
 
@@ -29,6 +28,7 @@ from app.schemas.oauth_client import (
 from app.services.authority_service import AuthorityService
 from app.services.document_service import DocumentService
 from app.services.oauth_client_service import OAuthClientService
+from app.data_sources.diccionario_municipios import MUNICIPIOS_COLOMBIA, DEPARTAMENTOS_COLOMBIA
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -468,3 +468,32 @@ async def revoke_oauth_client(
 ):
     client = OAuthClientService.revoke_client(db, client_id)
     return OAuthClientRevokeResponse(client_id=client.id, is_active=client.is_active)
+
+
+@router.get("/territorios", response_model=Dict)
+async def get_territorios(
+    _: User = Depends(require_admin)
+):
+    """
+    Obtiene la lista de municipios y departamentos del DIVIPOLA.
+    Solo accesible para administradores.
+    
+    Returns:
+        - municipios: Lista de objetos con {nombre, codigo} ordenados alfabéticamente
+        - departamentos: Lista de objetos con {nombre, codigo} ordenados alfabéticamente
+    """
+    # Convertir diccionarios a listas de objetos ordenados
+    municipios = [
+        {"nombre": nombre, "codigo": codigo} 
+        for nombre, codigo in sorted(MUNICIPIOS_COLOMBIA.items(), key=lambda x: x[0])
+    ]
+    
+    departamentos = [
+        {"nombre": nombre, "codigo": codigo}
+        for nombre, codigo in sorted(DEPARTAMENTOS_COLOMBIA.items(), key=lambda x: x[0])
+    ]
+    
+    return {
+        "municipios": municipios,
+        "departamentos": departamentos
+    }

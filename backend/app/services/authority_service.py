@@ -114,10 +114,21 @@ class AuthorityService:
     def create_authority_user(db: Session, data: AuthorityCreateRequest) -> User:
         """Create a new authority user with profile and instrument assignments"""
         
-        # Obtener el territorio de la primera asignación (si existe)
-        territorio = None
-        if data.instrument_assignments and len(data.instrument_assignments) > 0:
-            territorio = data.instrument_assignments[0].territory_name
+        # Obtener el territorio principal
+        # 1. Prioritario: main_territory (el municipio/departamento que representa)
+        # 2. Fallback: territorio de las asignaciones (para compatibilidad)
+        territorio = data.main_territory
+        
+        if not territorio and data.instrument_assignments and len(data.instrument_assignments) > 0:
+            # Buscar si hay alguna asignación de líder (usa su propio territorio)
+            for assignment in data.instrument_assignments:
+                if assignment.role == AssignmentRole.LEADER_PLANNING:
+                    territorio = assignment.territory_name
+                    break
+            
+            # Si no hay líder, usar el primer territory_name como fallback
+            if not territorio:
+                territorio = data.instrument_assignments[0].territory_name
         
         # Determinar códigos según el tipo de autoridad
         codigo_municipio = data.codigo_municipio
@@ -125,10 +136,10 @@ class AuthorityService:
         codigo_region = data.codigo_region
         cedula = data.cedula
         
-        # Generar email automáticamente para MUNICIPIO y DEPARTAMENTO
+        # Generar email/usuario para cada tipo de autoridad
         email = data.email
         
-        # MUNICIPIO: Email es el código DANE del municipio
+        # MUNICIPIO: Usuario es SOLO el código DANE del municipio que representa
         if data.authority_type == AuthorityType.MUNICIPIO:
             if territorio and not codigo_municipio:
                 try:
@@ -137,14 +148,14 @@ class AuthorityService:
                     pass
             
             if codigo_municipio:
-                email = f"{codigo_municipio}@municipio.gov.co"
+                email = codigo_municipio  # Solo el código DIVIPOLA, sin @municipio.gov.co
             elif not email:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No se pudo determinar el código DANE del municipio desde el territorio. Verifique el nombre del territorio."
+                    detail="No se pudo determinar el código DANE del municipio. Verifique que haya seleccionado un municipio válido."
                 )
         
-        # DEPARTAMENTO: Email es el código del departamento
+        # DEPARTAMENTO: Usuario es SOLO el código del departamento que representa
         elif data.authority_type == AuthorityType.DEPARTAMENTO:
             if territorio and not codigo_departamento:
                 try:
@@ -153,27 +164,48 @@ class AuthorityService:
                     pass
             
             if codigo_departamento:
-                email = f"{codigo_departamento}@departamento.gov.co"
+                email = codigo_departamento  # Solo el código DIVIPOLA, sin @departamento.gov.co
             elif not email:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No se pudo determinar el código del departamento desde el territorio. Verifique el nombre del territorio."
+                    detail="No se pudo determinar el código del departamento. Verifique que haya seleccionado un departamento válido."
                 )
         
-        # REGION e INDEPENDIENTE: Email debe venir en el request
-        elif not email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El campo email es requerido para autoridades de tipo REGION e INDEPENDIENTE"
-            )
+        # REGION: Usuario es el correo electrónico
+        elif data.authority_type == AuthorityType.REGION:
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El campo email es requerido para autoridades de tipo REGION"
+                )
+        
+        # INDEPENDIENTE: Usuario es la cédula
+        elif data.authority_type == AuthorityType.INDEPENDIENTE:
+            if not cedula:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El campo cédula es requerido para autoridades de tipo INDEPENDIENTE"
+                )
+            email = cedula  # Usuario = cédula
         
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El correo electrónico ya está registrado"
-            )
+            if data.authority_type == AuthorityType.MUNICIPIO:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Ya existe una autoridad registrada con el código DIVIPOLA '{email}'"
+                )
+            elif data.authority_type == AuthorityType.DEPARTAMENTO:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Ya existe una autoridad registrada con el código de departamento '{email}'"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El correo electrónico ya está registrado"
+                )
         
         # Validate instrument assignments
         AuthorityService.validate_instrument_assignments(db, data.instrument_assignments)

@@ -1,6 +1,6 @@
 """Authentication schemas"""
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from app.models.user import UserRole
 from app.models.authority_profile import AuthorityType
 from app.models.authority_instrument_assignment import AssignmentRole
@@ -9,7 +9,7 @@ from app.models.instrument import InstrumentCode
 
 class LoginRequest(BaseModel):
     """Login request schema"""
-    email: EmailStr
+    email: str = Field(..., description="Usuario (código DIVIPOLA o correo electrónico)")
     password: str
 
 
