@@ -48,9 +48,9 @@ app.add_middleware(
 # - flujo /oauth/authorize → redirect_uri
 app.add_middleware(
     SessionMiddleware,
-    secret_key=settings.SECRET_KEY,   # 🔐 usa una key fuerte en prod
-    same_site="lax",
-    https_only=False,                 # ⚠️ en EC2 + HTTPS => True
+    secret_key=settings.SECRET_KEY,
+    same_site="lax", # same_site="none",
+    https_only=False, # https_only=True,   
 )
 
 # ======================================================

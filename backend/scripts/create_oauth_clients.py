@@ -30,3 +30,4 @@ if __name__ == "__main__":
     # AJUSTA a las URLs reales del cliente
     create_client("Plan Cliente Municipio", "municipio", "https://CLIENTE/ssocallback/municipio")
     create_client("Plan Cliente Admin", "admin", "https://CLIENTE/ssocallback/admin")
+    create_client("Plan Web Local", "admin", "http://localhost:3000/auth/callback")

@@ -1,4 +1,3 @@
-from typing import List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -8,7 +7,6 @@ from app.core.oauth_security import generate_client_secret, hash_secret
 
 
 def _validate_redirect_uri(uri: str) -> None:
-    # reglas mínimas para evitar basura: http(s) obligatorio
     if not (uri.startswith("https://") or uri.startswith("http://")):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -18,16 +16,16 @@ def _validate_redirect_uri(uri: str) -> None:
 
 class OAuthClientService:
     @staticmethod
-    def create_client(db: Session, name: str, redirect_uris: List[str]) -> tuple[OAuthClient, str]:
-        for u in redirect_uris:
-            _validate_redirect_uri(u)
+    def create_client(db: Session, name: str, client_type: str, redirect_uri: str) -> tuple[OAuthClient, str]:
+        _validate_redirect_uri(redirect_uri)
 
         client_secret = generate_client_secret()
         client = OAuthClient(
             name=name,
+            client_type=client_type,
+            redirect_uri=redirect_uri,
             secret_hash=hash_secret(client_secret),
-            redirect_uris=redirect_uris,
-            revoked=False,
+            is_active=True,
         )
         db.add(client)
         db.commit()
@@ -35,7 +33,7 @@ class OAuthClientService:
         return client, client_secret
 
     @staticmethod
-    def list_clients(db: Session) -> List[OAuthClient]:
+    def list_clients(db: Session):
         return db.query(OAuthClient).order_by(OAuthClient.created_at.desc()).all()
 
     @staticmethod
@@ -43,7 +41,7 @@ class OAuthClientService:
         client = db.query(OAuthClient).filter(OAuthClient.id == client_id).first()
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client no encontrado")
-        client.revoked = True
+        client.is_active = False
         db.add(client)
         db.commit()
         db.refresh(client)
