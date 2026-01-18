@@ -111,17 +111,37 @@ def _build_authority_detail_response(db: Session, user: User) -> AuthorityDetail
     """
     Centralize response building to avoid repeating logic and to guard None values.
     """
+    import json
+    
     profile = _safe_profile(user)
     assignments = _build_assignments(user)
     docs_count = _documents_count(db, user.id)
+    
+    # Extraer contact_email del additional_data si existe
+    contact_email = None
+    additional_data = getattr(profile, "additional_data", None)
+    if additional_data:
+        try:
+            data_dict = json.loads(additional_data) if isinstance(additional_data, str) else {}
+            contact_email = data_dict.get('contact_email')
+        except:
+            pass
+    
+    # Determinar qué email mostrar
+    display_email = user.email
+    authority_type = getattr(profile, "authority_type", None)
+    
+    # Para MUNICIPIO y DEPARTAMENTO, mostrar el contact_email si existe
+    if authority_type in ['MUNICIPIO', 'DEPARTAMENTO'] and contact_email:
+        display_email = contact_email
 
     return AuthorityDetailResponse(
         id=user.id,
-        email=user.email,
+        email=display_email,
         is_active=user.is_active,
 
         # profile can be None
-        authority_type=getattr(profile, "authority_type", None),
+        authority_type=authority_type,
         display_name=getattr(profile, "display_name", None),
         additional_data=getattr(profile, "additional_data", None),
         codigo_municipio=getattr(profile, "codigo_municipio", None),

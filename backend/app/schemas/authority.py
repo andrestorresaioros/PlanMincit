@@ -74,6 +74,7 @@ class AuthorityUpdateRequest(BaseModel):
     codigo_region: Optional[str] = Field(None, max_length=10)
     cedula: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=8, description="Nueva contraseña (opcional)")
     # Opcional: permitir reasignación de instrumentos (permite múltiples asignaciones)
     instrument_assignments: Optional[List[InstrumentAssignment]] = Field(None, min_items=1)
 

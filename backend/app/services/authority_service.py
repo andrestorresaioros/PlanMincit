@@ -138,6 +138,7 @@ class AuthorityService:
         
         # Generar email/usuario para cada tipo de autoridad
         email = data.email
+        contact_email = None  # Email informativo para MUNICIPIO/DEPARTAMENTO
         
         # MUNICIPIO: Usuario es SOLO el código DANE del municipio que representa
         if data.authority_type == AuthorityType.MUNICIPIO:
@@ -148,6 +149,7 @@ class AuthorityService:
                     pass
             
             if codigo_municipio:
+                contact_email = email  # Guardar el email informativo
                 email = codigo_municipio  # Solo el código DIVIPOLA, sin @municipio.gov.co
             elif not email:
                 raise HTTPException(
@@ -164,6 +166,7 @@ class AuthorityService:
                     pass
             
             if codigo_departamento:
+                contact_email = email  # Guardar el email informativo
                 email = codigo_departamento  # Solo el código DIVIPOLA, sin @departamento.gov.co
             elif not email:
                 raise HTTPException(
@@ -223,12 +226,27 @@ class AuthorityService:
         db.add(user)
         db.flush()  # Get user.id
         
+        # Preparar additional_data como JSON si hay contact_email
+        import json
+        additional_data_dict = {}
+        if data.additional_data:
+            try:
+                additional_data_dict = json.loads(data.additional_data) if isinstance(data.additional_data, str) else {}
+            except:
+                additional_data_dict = {}
+        
+        # Agregar contact_email al additional_data si existe
+        if contact_email:
+            additional_data_dict['contact_email'] = contact_email
+        
+        additional_data_json = json.dumps(additional_data_dict) if additional_data_dict else None
+        
         # Create authority profile
         profile = AuthorityProfile(
             user_id=user.id,
             authority_type=data.authority_type,
             display_name=data.display_name,
-            additional_data=data.additional_data,
+            additional_data=additional_data_json,
             codigo_municipio=codigo_municipio,
             codigo_departamento=codigo_departamento,
             codigo_region=codigo_region,
@@ -280,6 +298,10 @@ class AuthorityService:
         # Update user fields
         if "is_active" in update_data:
             user.is_active = update_data["is_active"]
+        
+        # Update password if provided
+        if "password" in update_data and update_data["password"]:
+            user.hashed_password = get_password_hash(update_data["password"])
         
         # Update profile fields
         profile_fields = [
