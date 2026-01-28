@@ -81,6 +81,16 @@ app.include_router(authority.public_router)  # Router público sin autenticació
 # - /oauth/userinfo
 app.include_router(oauth.router)
 
+sso_app = FastAPI(
+    title=f"{settings.APP_NAME} - SSO",
+    version=settings.APP_VERSION,
+    docs_url=None,
+    redoc_url=None,
+)
+
+sso_app.include_router(oauth.router)    
+app.mount("/sso", sso_app)
+
 # ======================================================
 # Root & health
 # ======================================================
@@ -92,9 +102,10 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs",
         "sso": {
-            "authorize": "/oauth/authorize",
-            "token": "/oauth/token",
-            "userinfo": "/oauth/userinfo",
+            "authorize": "/sso/oauth/authorize",
+            "token": "/sso/oauth/token",
+            "userinfo": "/sso/oauth/userinfo",
+            "legacy_authorize": "/oauth/authorize",
         },
     }
 
