@@ -1,66 +1,65 @@
 # PlanMinCIT
 
-Backend para la gestión de procesos de planificación institucional. Expone servicios REST seguros y escalables, orientados a la integración con aplicaciones cliente y sistemas ministeriales.
+![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_15-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+![Estado](https://img.shields.io/badge/estado-en%20construcción-orange?style=flat)
+
+Backend para la gestión de procesos de planificación institucional, diseñado para exponer servicios REST que consuman aplicaciones cliente.
+
+> **Estado del proyecto:** este repositorio contiene la base de infraestructura del servicio —contenedores, dependencias y configuración de entorno—. El código de la API (`main.py` y el paquete `app/`) todavía no está publicado.
 
 ## Stack
 
-- **Framework:** FastAPI (Python 3.10+)
-- **Base de datos:** PostgreSQL 14+
-- **ORM y migraciones:** SQLAlchemy + Alembic
-- **Validación:** Pydantic
-- **Contenedores:** Docker / Docker Compose
+| Capa | Tecnología |
+|---|---|
+| Framework | FastAPI + Uvicorn |
+| Validación y configuración | Pydantic v2, pydantic-settings, python-dotenv |
+| Persistencia | PostgreSQL 15, SQLAlchemy 2, Alembic |
+| Seguridad | JWT (python-jose), hash de contraseñas con passlib/bcrypt |
+| Contenedores | Docker y Docker Compose |
 
-## Estructura del repositorio
+## Contenido actual
 
-    .
-    ├── backend/              # API FastAPI
-    │   ├── app/
-    │   │   ├── api/          # Endpoints de la API
-    │   │   ├── core/         # Configuración y seguridad
-    │   │   ├── models/       # Modelos de base de datos
-    │   │   ├── schemas/      # Schemas Pydantic
-    │   │   ├── services/     # Lógica de negocio
-    │   │   └── utils/        # Utilidades
-    │   ├── alembic/          # Migraciones de base de datos
-    │   ├── tests/            # Tests
-    │   ├── .env.example      # Ejemplo de variables de entorno
-    │   ├── main.py           # Punto de entrada de la aplicación
-    │   └── requirements.txt  # Dependencias
-    ├── docker-compose.yml
-    └── .dockerignore
+```
+.
+├── backend/
+│   ├── Dockerfile         # Imagen Python 3.11 para la API
+│   ├── requirements.txt   # Dependencias fijadas
+│   ├── .env.example       # Variables de entorno de la API
+│   └── README.md          # Guía del servicio y estructura prevista
+├── docker-compose.yml     # PostgreSQL + API con recarga en caliente
+└── .dockerignore
+```
+
+## Configuración
+
+Variables de la API (`backend/.env`, a partir de [`backend/.env.example`](backend/.env.example)):
+
+| Variable | Uso |
+|---|---|
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL |
+| `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` | Firma y vigencia de los tokens JWT |
+| `ALLOWED_ORIGINS` | Orígenes permitidos por CORS |
+| `APP_NAME`, `DEBUG`, `ENVIRONMENT` | Parámetros generales |
+
+Docker Compose admite además `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` y `POSTGRES_HOST_PORT`; si no se definen, usa valores de desarrollo.
 
 ## Puesta en marcha
 
-### Con Docker
+Una vez incorporado el código de la API:
 
 ```bash
 docker compose up -d --build
 ```
 
-### Entorno local
+La API quedará en `http://localhost:8000`, con documentación interactiva en `/docs` (Swagger UI) y `/redoc`.
 
-```bash
-cd backend
+## Autor
 
-python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
+**César Andrés Torres Bernal** · [GitHub](https://github.com/andrestorresaioros) · [LinkedIn](https://www.linkedin.com/in/andr%C3%A9s-torres10)
 
-pip install -r requirements.txt
-cp .env.example .env              # configurar variables de entorno
+## Licencia
 
-alembic upgrade head              # inicializar la base de datos
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-La API queda disponible en `http://localhost:8000`.
-
-## Documentación de la API
-
-Con la aplicación en ejecución, la documentación interactiva está disponible en:
-
-- **Swagger UI:** `http://localhost:8000/docs`
-- **ReDoc:** `http://localhost:8000/redoc`
-
-## Más información
-
-Detalles de instalación y ejecución del servicio en [`backend/README.md`](backend/README.md).
+Distribuido bajo la licencia MIT. Consulta [LICENSE](LICENSE).

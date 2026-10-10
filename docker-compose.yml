@@ -1,32 +1,33 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: planmincit
-      POSTGRES_PASSWORD: planmincit123
-      POSTGRES_DB: planmincit
+      POSTGRES_USER: ${POSTGRES_USER:-planmincit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-planmincit}
+      POSTGRES_DB: ${POSTGRES_DB:-planmincit}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U planmincit"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-planmincit}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
-    build: .
+    build: ./backend
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/app
+      - ./backend:/app
     ports:
       - "8000:8000"
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
-      - DATABASE_URL=postgresql://planmincit:planmincit123@db:5432/planmincit
-      - DEBUG=True
+      DATABASE_URL: postgresql://${POSTGRES_USER:-planmincit}:${POSTGRES_PASSWORD:-planmincit}@db:5432/${POSTGRES_DB:-planmincit}
+      DEBUG: ${DEBUG:-True}
     depends_on:
       db:
         condition: service_healthy

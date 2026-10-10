@@ -51,7 +51,9 @@ Una vez ejecutada la aplicación, la documentación interactiva está disponible
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-## Estructura del Proyecto
+## Estructura prevista
+
+Organización planificada para el código de la API (aún no publicado en este repositorio):
 
 ```
 backend/
