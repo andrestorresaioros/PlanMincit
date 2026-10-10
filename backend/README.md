@@ -2,6 +2,8 @@
 
 API backend desarrollada con FastAPI para el proyecto PlanMinCIT.
 
+> Proyecto finalizado. Esta guía documenta cómo se instalaba y ejecutaba el servicio; el código fuente de la API no está incluido en este repositorio.
+
 ## Requisitos
 
 - Python 3.10+
@@ -51,9 +53,9 @@ Una vez ejecutada la aplicación, la documentación interactiva está disponible
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-## Estructura prevista
+## Estructura de la API
 
-Organización planificada para el código de la API (aún no publicado en este repositorio):
+Organización del código de la API (no incluido en este repositorio):
 
 ```
 backend/

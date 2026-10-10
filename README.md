@@ -4,11 +4,11 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_15-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
-![Estado](https://img.shields.io/badge/estado-en%20construcción-orange?style=flat)
+![Estado](https://img.shields.io/badge/estado-finalizado-lightgrey?style=flat)
 
 Backend para la gestión de procesos de planificación institucional, diseñado para exponer servicios REST que consuman aplicaciones cliente.
 
-> **Estado del proyecto:** este repositorio contiene la base de infraestructura del servicio —contenedores, dependencias y configuración de entorno—. El código de la API (`main.py` y el paquete `app/`) todavía no está publicado.
+> **Estado del proyecto:** finalizado. Este repositorio conserva la infraestructura del servicio —contenedores, dependencias fijadas y configuración de entorno—; el código fuente de la API no forma parte de él.
 
 ## Stack
 
@@ -20,7 +20,7 @@ Backend para la gestión de procesos de planificación institucional, diseñado 
 | Seguridad | JWT (python-jose), hash de contraseñas con passlib/bcrypt |
 | Contenedores | Docker y Docker Compose |
 
-## Contenido actual
+## Contenido
 
 ```
 .
@@ -28,7 +28,7 @@ Backend para la gestión de procesos de planificación institucional, diseñado 
 │   ├── Dockerfile         # Imagen Python 3.11 para la API
 │   ├── requirements.txt   # Dependencias fijadas
 │   ├── .env.example       # Variables de entorno de la API
-│   └── README.md          # Guía del servicio y estructura prevista
+│   └── README.md          # Guía del servicio y estructura de la API
 ├── docker-compose.yml     # PostgreSQL + API con recarga en caliente
 └── .dockerignore
 ```
@@ -46,15 +46,15 @@ Variables de la API (`backend/.env`, a partir de [`backend/.env.example`](backen
 
 Docker Compose admite además `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` y `POSTGRES_HOST_PORT`; si no se definen, usa valores de desarrollo.
 
-## Puesta en marcha
+## Uso de la configuración
 
-Una vez incorporado el código de la API:
+La base de datos del proyecto puede levantarse de forma independiente con Docker Compose:
 
 ```bash
-docker compose up -d --build
+docker compose up -d db
 ```
 
-La API quedará en `http://localhost:8000`, con documentación interactiva en `/docs` (Swagger UI) y `/redoc`.
+PostgreSQL queda disponible en `localhost:5432` con las credenciales de desarrollo definidas en `docker-compose.yml`. La API se documentaba con Swagger UI (`/docs`) y ReDoc (`/redoc`), generados automáticamente por FastAPI.
 
 ## Autor
 
